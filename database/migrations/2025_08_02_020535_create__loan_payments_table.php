@@ -15,11 +15,11 @@ return new class extends Migration
             $table->id();
             $table->foreignId('loan_id')->constrained('loans')->onDelete('cascade');
             $table->date('payment_date');
-            $table->decimal('amount_paid');
-            $table->decimal('principal_payment');
-            $table->decimal('interest_payment');
-            $table->decimal('penalty_payment')->default(0.00);
-            $table->decimal('remaining_balance');
+            $table->decimal('amount_paid',10, 2);
+            $table->decimal('principal_payment',10, 2);
+            $table->decimal('interest_payment',10, 2);
+            $table->decimal('penalty_payment',10, 2)->default(0.00);
+            $table->decimal('remaining_balance',10, 2);
             $table->enum('payment_method',['cash', 'check', 'bank_transfer']);
             $table->string('receipt_number');
             $table->foreignId('received_by')->constrained('users')->onDelete('cascade');//admin

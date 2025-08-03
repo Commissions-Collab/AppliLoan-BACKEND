@@ -17,11 +17,14 @@ return new class extends Migration
             $table->string('product_name');
             $table->string('brand');
             $table->string('model');
-            $table->decimal('cost_price');
-            $table->decimal('selling_price');
+
+            $table->decimal('cost_price', 12, 2); 
+            $table->decimal('selling_price', 12, 2);
+
             $table->integer('stock_quantity')->default(0);
             $table->integer('reorder_level')->default(0);
-            $table->enum('status', ['active','discontinued']);
+            $table->enum('status', ['active', 'discontinued']);
+
             $table->foreignId('category_id')->constrained('categories')->onDelete('cascade');
             $table->timestamps();
         });
@@ -32,6 +35,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('_products');
+        Schema::dropIfExists('products');
     }
 };
