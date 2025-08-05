@@ -52,4 +52,29 @@ class User extends Authenticatable
          'is_verified' => 'boolean',
         ];
     }
+
+    public function member()
+    {
+        return $this->hasOne(Member::class);
+    }
+
+    public function processedApplications()
+    {
+        return $this->hasMany(LoanApplication::class, 'processed_by');
+    }
+
+    public function approvedLoans()
+    {
+        return $this->hasMany(Loan::class, 'approved_by');
+    }
+
+    public function cashierPayments()
+    {
+        return $this->hasMany(LoanPayment::class, 'cashier_id');
+    }
+
+    public function cashierSales()
+    {
+        return $this->hasMany(Sales::class, 'cashier_id');
+    }
 }

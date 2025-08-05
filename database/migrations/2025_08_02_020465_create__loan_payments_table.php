@@ -14,15 +14,13 @@ return new class extends Migration
         Schema::create('loan_payments', function (Blueprint $table) {
             $table->id();
             $table->foreignId('loan_id')->constrained('loans')->onDelete('cascade');
+            $table->foreignId('schedule_id')->constrained('loan_schedules')->onDelete('cascade');
             $table->date('payment_date');
-            $table->decimal('amount_paid',10, 2);
-            $table->decimal('principal_payment',10, 2);
-            $table->decimal('interest_payment',10, 2);
-            $table->decimal('penalty_payment',10, 2)->default(0.00);
-            $table->decimal('remaining_balance',10, 2);
-            $table->enum('payment_method',['cash', 'check', 'bank_transfer']);
+            $table->decimal('amount_paid', 12, 2);
+            $table->decimal('remaining_balance', 10, 2);
+            $table->enum('payment_method', ['cash', 'check', 'bank_transfer']);
             $table->string('receipt_number');
-            $table->foreignId('received_by')->constrained('users')->onDelete('cascade');//admin
+            $table->foreignId('received_by')->constrained('users')->onDelete('cascade'); //admin
             $table->timestamps();
         });
     }
