@@ -2,14 +2,17 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Sales extends Model
 {
-     protected $table = 'sales';
+    use HasFactory;
 
-    
+    protected $table = 'sales';
+
+
     protected $fillable = [
         'sale_number',
         'member_id',
@@ -24,7 +27,7 @@ class Sales extends Model
         'notes',
     ];
 
-    
+
     protected $casts = [
         'sale_date' => 'datetime',
         'subtotal' => 'decimal:2',
@@ -33,19 +36,18 @@ class Sales extends Model
         'total_amount' => 'decimal:2',
     ];
 
-    /**
-     * Get the member who made the purchase.
-     */
-    public function member(): BelongsTo
+    public function member()
     {
         return $this->belongsTo(Member::class);
     }
 
-    /**
-     * Get the cashier (admin) who handled the sale.
-     */
-    public function cashier(): BelongsTo
+    public function cashier()
     {
         return $this->belongsTo(User::class, 'cashier_id');
+    }
+
+    public function items()
+    {
+        return $this->hasMany(SaleItem::class);
     }
 }

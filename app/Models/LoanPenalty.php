@@ -5,21 +5,21 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class LoanPayment extends Model
+class LoanPenalty extends Model
 {
     use HasFactory;
     
     protected $fillable = [
         'loan_id',
-        'schedule_id',
-        'payment_date',
-        'amount_paid',
-        'remaining_balance',
-        'payment_method',
-        'receipt_number',
-        'received_by',
+        'penalty_rate',
+        'penalty_amount',
+        'due_date',
+        'penalty_date',
+        'days_overdue',
+        'status',
+        'remarks'
     ];
-
+    
     public function loan()
     {
         return $this->belongsTo(Loan::class);
@@ -28,10 +28,5 @@ class LoanPayment extends Model
     public function schedule()
     {
         return $this->belongsTo(LoanSchedule::class);
-    }
-
-    public function cashier()
-    {
-        return $this->belongsTo(User::class, 'cashier_id');
     }
 }
