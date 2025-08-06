@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
 
-class AuthControlle extends Controller
+class AuthController extends Controller
 {
     /**
      * Register a new user.

@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 class LoanPayment extends Model
 {
     use HasFactory;
-    
+
     protected $fillable = [
         'loan_id',
         'schedule_id',
@@ -18,6 +18,13 @@ class LoanPayment extends Model
         'payment_method',
         'receipt_number',
         'received_by',
+        'notes'
+    ];
+
+    protected $casts = [
+        'payment_date' => 'date',
+        'amount_paid' => 'decimal:2',
+        'remaining_balance' => 'decimal:2',
     ];
 
     public function loan()
@@ -27,11 +34,11 @@ class LoanPayment extends Model
 
     public function schedule()
     {
-        return $this->belongsTo(LoanSchedule::class);
+        return $this->belongsTo(LoanSchedule::class, 'schedule_id');
     }
 
-    public function cashier()
+    public function receivedBy()
     {
-        return $this->belongsTo(User::class, 'cashier_id');
+        return $this->belongsTo(User::class, 'received_by');
     }
 }

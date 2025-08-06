@@ -19,9 +19,8 @@ return new class extends Migration
             $table->string('unit');
             $table->decimal('price', 10, 2);
             $table->integer('stock_quantity');
-            $table->string('image');
-            $table->enum('status', ['active', 'discontinued']);
-
+            $table->string('image')->nullable();
+            $table->enum('status', ['active', 'discontinued'])->default('active');
             $table->timestamps();
         });
     }

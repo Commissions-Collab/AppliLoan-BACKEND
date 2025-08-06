@@ -25,21 +25,32 @@ class UserFactory extends Factory
     {
         return [
             'email' => fake()->unique()->safeEmail(),
-            'email_verified_at' => fake()->optional(0.8)->dateTime(),
-            'password' => static::$password ??= Hash::make('password'),
-            'role' => fake()->randomElement(['member']),
-            'otp' => fake()->optional(0.1)->numberBetween(100000, 999999),
-            'is_verified' => fake()->boolean(95),
+            'email_verified_at' => now(),
+            'password' => Hash::make('password'),
+            'role' => fake()->randomElement(['admin', 'loan_clerk', 'member']),
+            'is_verified' => true,
             'remember_token' => Str::random(10),
         ];
+    }
+
+    public function member()
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => 'member',
+        ]);
+    }
+
+    public function loanClerk()
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => 'loan_clerk',
+        ]);
     }
 
     public function admin()
     {
         return $this->state(fn (array $attributes) => [
             'role' => 'admin',
-            'email' => 'admin@school.com',
-            'is_verified' => true,
         ]);
     }
 

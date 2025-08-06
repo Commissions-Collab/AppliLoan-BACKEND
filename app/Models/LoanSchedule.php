@@ -8,22 +8,26 @@ use Illuminate\Database\Eloquent\Model;
 class LoanSchedule extends Model
 {
     use HasFactory;
-    
+
     protected $fillable = [
         'loan_id',
         'due_date',
         'amount_due',
-        'status',
+        'principal_amount',
+        'interest_amount',
+        'status'
+    ];
+
+    protected $casts = [
+        'due_date' => 'date',
+        'amount_due' => 'decimal:2',
+        'principal_amount' => 'decimal:2',
+        'interest_amount' => 'decimal:2',
     ];
 
     public function loan()
     {
         return $this->belongsTo(Loan::class);
-    }
-
-    public function penalties()
-    {
-        return $this->hasMany(LoanPenalty::class);
     }
 
     public function payments()

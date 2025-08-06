@@ -14,28 +14,22 @@ class LoanTypeFactory extends Factory
      *
      * @return array<string, mixed>
      */
-    public function definition(): array
+    public function definition()
     {
-        $loanTypes = [
-            ['name' => 'Regular Loan', 'rate' => 12.00, 'max_term' => 60],
-            ['name' => 'Appliance Loan', 'rate' => 14.00, 'max_term' => 48],
-            ['name' => 'Emergency Loan', 'rate' => 10.50, 'max_term' => 12],
-            ['name' => 'Salary Loan', 'rate' => 9.75, 'max_term' => 24],
-        ];
-
-        $type = $this->faker->randomElement($loanTypes);
-
-        $min = $this->faker->numberBetween(5000, 50000);
-        $max = $min + $this->faker->numberBetween(50000, 200000);
-
         return [
-            'type_name' => $type['name'],
-            'description' => $this->faker->sentence(10),
-            'min_amount' => $min,
-            'max_amount' => $max,
-            'interest_rate' => $type['rate'],
-            'max_term_months' => $type['max_term'],
-            'collateral_required' => $this->faker->boolean(30), // 30% chance to require collateral
+            'type_name' => fake()->randomElement([
+                'Appliance Loan',
+                'Personal Loan',
+                'Emergency Loan',
+                'Housing Loan',
+                'Education Loan'
+            ]),
+            'description' => fake()->paragraph(),
+            'min_amount' => fake()->numberBetween(5000, 10000),
+            'max_amount' => fake()->numberBetween(50000, 500000),
+            'interest_rate' => fake()->randomFloat(2, 8, 24),
+            'max_term_months' => fake()->randomElement([12, 24, 36, 48]),
+            'collateral_required' => fake()->boolean(30),
         ];
     }
 }
