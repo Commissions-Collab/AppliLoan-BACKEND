@@ -8,8 +8,8 @@ use Illuminate\Database\Eloquent\Model;
 class LoanType extends Model
 {
     use HasFactory;
-    
-    protected $fillable =[
+
+    protected $fillable = [
         'type_name',
         'description',
         'min_amount',
@@ -19,13 +19,15 @@ class LoanType extends Model
         'collateral_required',
     ];
 
+    protected $casts = [
+        'min_amount' => 'decimal:2',
+        'max_amount' => 'decimal:2',
+        'interest_rate' => 'decimal:2',
+        'collateral_required' => 'boolean',
+    ];
+
     public function loanApplications()
     {
         return $this->hasMany(LoanApplication::class);
-    }
-
-    public function memberExistingLoans()
-    {
-        return $this->hasMany(MemberExistingLoan::class);
     }
 }

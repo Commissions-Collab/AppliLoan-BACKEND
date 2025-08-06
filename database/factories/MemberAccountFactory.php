@@ -15,18 +15,17 @@ class MemberAccountFactory extends Factory
      *
      * @return array<string, mixed>
      */
-    public function definition(): array
+    public function definition()
     {
-        $originalShareCapital = $this->faker->numberBetween(5000, 50000);
-        $currentShareCapital = $originalShareCapital + $this->faker->numberBetween(-1000, 20000);
-
+        $originalShare = fake()->numberBetween(1000, 10000);
+        
         return [
             'member_id' => Member::factory(),
-            'original_share_capital' => $originalShareCapital,
-            'current_share_capital' => $currentShareCapital,
-            'savings_balance' => $this->faker->numberBetween(1000, 100000),
-            'regular_loan_balance' => $this->faker->numberBetween(0, 300000),
-            'petty_cash_balance' => $this->faker->numberBetween(0, 10000),
+            'original_share_capital' => $originalShare,
+            'current_share_capital' => $originalShare,
+            'savings_balance' => fake()->numberBetween(500, 50000),
+            'regular_loan_balance' => fake()->numberBetween(0, 100000),
+            'petty_cash_balance' => fake()->numberBetween(0, 5000),
         ];
     }
 }

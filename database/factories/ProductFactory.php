@@ -17,28 +17,28 @@ class ProductFactory extends Factory
      */
     public function definition(): array
     {
-        $products = [
-            ['name' => 'White Rice 25kg', 'unit' => 'sack', 'price' => 1200],
-            ['name' => 'Corned Beef 150g', 'unit' => 'can', 'price' => 45],
-            ['name' => 'Instant Coffee 100g', 'unit' => 'pack', 'price' => 85],
-            ['name' => 'Laundry Soap 200g', 'unit' => 'bar', 'price' => 25],
-            ['name' => 'Cooking Oil 1L', 'unit' => 'bottle', 'price' => 65],
-            ['name' => 'Sugar 1kg', 'unit' => 'pack', 'price' => 55],
-            ['name' => 'Salt 500g', 'unit' => 'pack', 'price' => 15],
-            ['name' => 'Sardines 155g', 'unit' => 'can', 'price' => 22],
+        $appliances = [
+            'Refrigerator' => ['2-door', 'Single door', 'Side by side', 'French door'],
+            'Washing Machine' => ['Top load', 'Front load', 'Twin tub'],
+            'Television' => ['LED', 'Smart TV', 'Android TV'],
+            'Air Conditioner' => ['Window type', 'Split type', 'Inverter'],
+            'Microwave' => ['Basic', 'Convection', 'Grill'],
+            'Rice Cooker' => ['Basic', 'Fuzzy logic', 'Induction'],
+            'Blender' => ['Basic', 'High-speed', 'Immersion'],
         ];
 
-        $product = $this->faker->randomElement($products);
+        $appliance = fake()->randomKey($appliances);
+        $type = fake()->randomElement($appliances[$appliance]);
 
         return [
             'category_id' => Category::factory(),
-            'name' => $product['name'],
-            'description' => $this->faker->sentence(6),
-            'unit' => $product['unit'],
-            'price' => $product['price'],
-            'stock_quantity' => $this->faker->numberBetween(10, 500),
-            'image' => $this->faker->imageUrl(640, 480, 'products', true),
-            'status' => $this->faker->randomElement(['active', 'discontinued']),
+            'name' => $appliance . ' ' . $type . ' ' . fake()->bothify('##??'),
+            'description' => fake()->paragraph(),
+            'unit' => 'piece',
+            'price' => fake()->numberBetween(5000, 50000),
+            'stock_quantity' => fake()->numberBetween(5, 50),
+            'image' => 'https://placehold.co/600x400',
+            'status' => fake()->randomElement(['active', 'discontinued']),
         ];
     }
 }

@@ -17,7 +17,7 @@ return new class extends Migration
             $table->string('description');
             $table->decimal('min_amount', 12, 2)->default(0.00);
             $table->decimal('max_amount', 12, 2)->default(0.00);
-            $table->decimal('interest_rate', 5, 2); 
+            $table->decimal('interest_rate', 5, 2);
             $table->integer('max_term_months')->default(12);
             $table->boolean('collateral_required')->default(false);
             $table->timestamps();
@@ -29,6 +29,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('loan_types'); 
+        Schema::dropIfExists('loan_types');
     }
 };

@@ -46,11 +46,26 @@ class User extends Authenticatable
     protected function casts(): array
     {
         return [
-        'email_verified_at' => 'datetime',
-         'password' => 'hashed',
-         'role' => UserRole::class,
-         'is_verified' => 'boolean',
+            'email_verified_at' => 'datetime',
+            'password' => 'hashed',
+            'role' => UserRole::class,
+            'is_verified' => 'boolean',
         ];
+    }
+
+    public function isAdmin(): bool
+    {
+        return $this->role === UserRole::ADMIN;
+    }
+
+    public function isLoanClerk(): bool
+    {
+        return $this->role === UserRole::LOAN_CLERK;
+    }
+
+    public function isMember(): bool
+    {
+        return $this->role === UserRole::MEMBER;
     }
 
     public function member()
@@ -68,13 +83,8 @@ class User extends Authenticatable
         return $this->hasMany(Loan::class, 'approved_by');
     }
 
-    public function cashierPayments()
+    public function receivedPayments()
     {
-        return $this->hasMany(LoanPayment::class, 'cashier_id');
-    }
-
-    public function cashierSales()
-    {
-        return $this->hasMany(Sales::class, 'cashier_id');
+        return $this->hasMany(LoanPayment::class, 'received_by');
     }
 }

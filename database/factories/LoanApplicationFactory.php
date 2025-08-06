@@ -18,18 +18,25 @@ class LoanApplicationFactory extends Factory
      *
      * @return array<string, mixed>
      */
-    public function definition(): array
+    public function definition()
     {
-        $status = $this->faker()->randomElement(['pending', 'approved', 'rejected']);
         return [
             'member_id' => Member::factory(),
             'loan_type_id' => LoanType::factory(),
-            'item_name' => Product::factory(),
-            'applied_amount' => $this->faker->numberBetween(10000, 500000),
-            'term_months' => $this->faker->randomElement([12, 18, 24, 36, 48, 60]),
-            'application_date' => $this->faker->dateTimeBetween('-6 months', 'now'),
-            'status' => $status,
-            'processed_by' => $status !== 'pending' ? User::factory() : null,
+            'product_id' => Product::factory(),
+            'applied_amount' => fake()->numberBetween(10000, 100000),
+            'term_months' => fake()->randomElement([12, 18, 24, 36]),
+            'application_date' => fake()->dateTimeBetween('-1 year', 'now'),
+            'status' => fake()->randomElement(['pending', 'approved', 'rejected']),
+            'purpose' => fake()->sentence(),
         ];
+    }
+
+    public function approved()
+    {
+        return $this->state(fn(array $attributes) => [
+            'status' => 'approved',
+            'processed_by' => User::factory()->admin(),
+        ]);
     }
 }

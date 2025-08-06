@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 class Loan extends Model
 {
     use HasFactory;
-    
+
     protected $fillable = [
         'loan_application_id',
         'loan_number',
@@ -22,12 +22,33 @@ class Loan extends Model
         'maturity_date',
         'approved_by',
         'purpose',
-        'status',
+        'status'
     ];
 
+    protected $casts = [
+        'principal_amount' => 'decimal:2',
+        'monthly_payment' => 'decimal:2',
+        'interest_rate' => 'decimal:2',
+        'application_date' => 'date',
+        'approval_date' => 'date',
+        'release_date' => 'date',
+        'maturity_date' => 'date',
+    ];
+
+    // Relationships
     public function application()
     {
         return $this->belongsTo(LoanApplication::class, 'loan_application_id');
+    }
+
+    public function member()
+    {
+        return $this->hasOneThrough(Member::class, LoanApplication::class, 'id', 'id', 'loan_application_id', 'member_id');
+    }
+
+    public function approvedBy()
+    {
+        return $this->belongsTo(User::class, 'approved_by');
     }
 
     public function schedules()
@@ -40,18 +61,28 @@ class Loan extends Model
         return $this->hasMany(LoanPayment::class);
     }
 
-    public function collaterals()
+    // Accessors
+    public function getTotalPaidAttribute()
     {
-        return $this->hasMany(LoanCollateral::class);
+        return $this->payments()->sum('amount_paid');
     }
 
-    public function penalties()
+    public function getRemainingBalanceAttribute()
     {
-        return $this->hasMany(LoanPenalty::class);
+        return $this->principal_amount - $this->total_paid;
     }
 
-    public function approvedBy()
+    public function getProgressPercentageAttribute()
     {
-        return $this->belongsTo(User::class, 'approved_by');
+        if ($this->principal_amount == 0) return 0;
+        return round(($this->total_paid / $this->principal_amount) * 100, 2);
+    }
+
+    public function getNextDueDateAttribute()
+    {
+        return $this->schedules()
+            ->where('status', 'unpaid')
+            ->orderBy('due_date')
+            ->first()?->due_date;
     }
 }

@@ -11,25 +11,27 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('member_spouses', function (Blueprint $table) {
+        Schema::create('members', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('member_id')->constrained('members')->onDelete('cascade');
+            $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
+            $table->string('member_number')->unique();
             $table->string('full_name');
+            $table->string('phone_number');
             $table->string('street_address')->nullable();
             $table->string('city')->nullable();
             $table->string('province')->nullable();
             $table->string('postal_code')->nullable();
             $table->string('tin_number')->nullable();
-            $table->string('contact_number')->nullable();
-            $table->date('date_of_birth');
-            $table->string('place_of_birth');
-            $table->integer('age');
+            $table->date('date_of_birth')->nullable();
+            $table->string('place_of_birth')->nullable();
+            $table->integer('age')->nullable();
             $table->integer('dependents')->nullable();
             $table->string('employer')->nullable();
             $table->string('position')->nullable();
             $table->decimal('monthly_income', 12, 2)->default(0.00);
             $table->decimal('other_income', 12, 2)->default(0.00);
             $table->enum('monthly_disposable_income_range', ['0-5000', '5001-10000', '10001-20000', '20001+'])->nullable();
+            $table->enum('status', ['active', 'inactive', 'suspended'])->default('active');
             $table->timestamps();
         });
     }
@@ -39,6 +41,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('member_spouses');
+        Schema::dropIfExists('members');
     }
 };

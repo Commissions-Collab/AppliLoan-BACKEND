@@ -15,13 +15,15 @@ class LoanScheduleFactory extends Factory
      *
      * @return array<string, mixed>
      */
-    public function definition(): array
+    public function definition()
     {
         return [
             'loan_id' => Loan::factory(),
-            'due_date' => $this->faker->dateTimeBetween('now', '+5 years'),
-            'amount_due' => $this->faker->numberBetween(1000, 15000),
-            'status' => $this->faker->randomElement(['unpaid', 'paid', 'overdue']),
+            'due_date' => fake()->dateTimeBetween('now', '+2 years'),
+            'amount_due' => fake()->numberBetween(1000, 5000),
+            'principal_amount' => fake()->numberBetween(800, 4000),
+            'interest_amount' => fake()->numberBetween(200, 1000),
+            'status' => fake()->randomElement(['unpaid', 'paid', 'overdue']),
         ];
     }
 }

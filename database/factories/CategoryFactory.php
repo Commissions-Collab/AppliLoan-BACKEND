@@ -16,15 +16,15 @@ class CategoryFactory extends Factory
      */
     public function definition(): array
     {
-        $categories = [
-            'Rice & Grains', 'Canned Goods', 'Beverages', 'Snacks & Sweets',
-            'Personal Care', 'Household Items', 'School Supplies', 'Hardware',
-            'Frozen Goods', 'Fresh Produce'
-        ];
-        
         return [
-            'name' => $this->faker->randomElement($categories),
-            'description' => $this->faker->sentence(8),
+            'name' => fake()->randomElement([
+                'Kitchen Appliances',
+                'Laundry Equipment',
+                'Electronics',
+                'Refrigeration',
+                'Small Appliances'
+            ]),
+            'description' => fake()->sentence(),
         ];
     }
 }
