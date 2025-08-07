@@ -1,4 +1,7 @@
 <?php
+
+use App\Http\Controllers\Admin\CategoriesControlle;
+use App\Http\Controllers\Admin\ProductControlle;
 use App\Http\Controllers\Member\AppliancesController;
 use App\Http\Controllers\Member\DashboardController;
 use App\Http\Controllers\Member\LoanMonitoringController;
@@ -18,6 +21,18 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('dashboard', function () {
             return response()->json(['message' => 'Admin Dashboard']);
         });
+        Route::post('/category', [CategoriesControlle::class,'store']);
+        Route::put('/category/{id}', [CategoriesControlle::class,'update']);
+        Route::delete('/category/{id}', [CategoriesControlle::class,'delete']);
+        Route::get('/category', [CategoriesControlle::class,'index']);
+
+        Route::post('/products', [ProductControlle::class,'store']);
+        Route::PUT('/products/{id}', [ProductControlle::class,'update']);
+        Route::delete('/products/{id}', [ProductControlle::class,'destroy']);
+        Route::get('/products', [ProductControlle::class,'index']);
+        Route::get('/products/name/{name}', [ProductControlle::class, 'showByName']);
+        Route::get('/categories/{id}/products', [ProductControlle::class, 'productsByCategory']);
+        Route::get('/products/filter', [ProductControlle::class, 'filterProducts']);
     });
 
     Route::middleware('role:loan_clerk')->prefix('/loan-clerk')->group(function () {
