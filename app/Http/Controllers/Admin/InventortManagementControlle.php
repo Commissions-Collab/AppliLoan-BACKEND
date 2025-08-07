@@ -8,9 +8,72 @@ use App\Models\Product;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
-class ProductControlle extends Controller
+class InventortManagementControlle extends Controller
 {
-    public function store(Request $request){
+     public function storeCategory(Request $request){
+        $validated = $request -> validate([
+            'name'=>'required|string|max:255',
+            'description'=>'required|string|max:255'
+        ]);
+
+        $categories = Category ::create([
+            'name'=>$validated['name'],
+            'description'=>$validated['description'],
+        ]);
+
+        return response()->json([
+            'message' => 'categories successfully',
+            'categories' => $categories,
+        ], 201);
+    }
+
+
+    //update
+    public function updateCategory(Request $request,$id){
+        $categories = Category::find($id);
+        if (!$categories) {
+            return response()->json(['message' => 'Category not found'], 404);
+        }
+
+        $validated = $request -> validate([
+            'name'=>'required|string|max:255',
+            'description'=>'required|string|max:255'
+        ]);
+
+        $categories->update($validated);
+
+        return response()->json([
+            'message' => 'categories successfully',
+            'categories' => $categories,
+        ], 201);
+    }
+
+
+    // delete
+    public function deleteCategory(Request $request,$id){
+        $category = Category::find($id);
+
+        if (!$category) {
+            return response()->json(['message' => 'Category not found'], 404);
+        }
+
+        $category->delete();
+
+        return response()->json(['message' => 'Category deleted successfully'], 200);
+    }
+
+    public function indexCategory(){
+        
+        $categories = Category::all();
+
+        return response()->json([
+            'message' => 'Categories retrieved successfully',
+            'categories' => $categories
+        ], 200);
+    }
+
+    //product
+    public function storeProduct(Request $request){
          $validated = $request->validate([
         'category_id' => 'required|exists:categories,id',
         'name' => 'required|string|max:255',
@@ -37,7 +100,7 @@ class ProductControlle extends Controller
     }
 
 
-  public function update(Request $request, $id)
+  public function updateProduct(Request $request, $id)
 {
     $product = Product::findOrFail($id);
 
@@ -71,7 +134,7 @@ class ProductControlle extends Controller
     ], 200);
 }
 
-    public function destroy($id)
+    public function destroyProduct($id)
     {
         $product = Product::find($id);
 
@@ -89,7 +152,7 @@ class ProductControlle extends Controller
         return response()->json(['message' => 'Product deleted successfully'], 200);
     }
 
-    public function index()
+    public function indexProduct()
     {
         $products = Product::with('category')->get();
 
@@ -167,6 +230,5 @@ class ProductControlle extends Controller
 
         return response()->json($products);
     }
-
 
 }

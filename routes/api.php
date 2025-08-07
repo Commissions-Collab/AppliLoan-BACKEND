@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\Admin\CategoriesControlle;
+use App\Http\Controllers\Admin\InventortManagementControlle;
+use App\Http\Controllers\Admin\MembershipApprovalController;
 use App\Http\Controllers\Admin\ProductControlle;
 use App\Http\Controllers\Member\AppliancesController;
 use App\Http\Controllers\Member\DashboardController;
@@ -21,18 +23,29 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('dashboard', function () {
             return response()->json(['message' => 'Admin Dashboard']);
         });
-        Route::post('/category', [CategoriesControlle::class,'store']);
-        Route::put('/category/{id}', [CategoriesControlle::class,'update']);
-        Route::delete('/category/{id}', [CategoriesControlle::class,'delete']);
-        Route::get('/category', [CategoriesControlle::class,'index']);
+        Route::post('/category', [InventortManagementControlle::class,'storeCategory']);
+        Route::put('/category/{id}', [InventortManagementControlle::class,'updateCategory']);
+        Route::delete('/category/{id}', [InventortManagementControlle::class,'deleteCategory']);
+        Route::get('/category', [InventortManagementControlle::class,'indexCategory']);
 
-        Route::post('/products', [ProductControlle::class,'store']);
-        Route::PUT('/products/{id}', [ProductControlle::class,'update']);
-        Route::delete('/products/{id}', [ProductControlle::class,'destroy']);
-        Route::get('/products', [ProductControlle::class,'index']);
-        Route::get('/products/name/{name}', [ProductControlle::class, 'showByName']);
-        Route::get('/categories/{id}/products', [ProductControlle::class, 'productsByCategory']);
-        Route::get('/products/filter', [ProductControlle::class, 'filterProducts']);
+        Route::post('/products', [InventortManagementControlle::class,'storeProduct']);
+        Route::PUT('/products/{id}', [InventortManagementControlle::class,'updateProduct']);
+        Route::delete('/products/{id}', [InventortManagementControlle::class,'destroyProduct']);
+        Route::get('/products', [InventortManagementControlle::class,'indexProduct']);
+        Route::get('/products/name/{name}', [InventortManagementControlle::class, 'showByName']);
+        Route::get('/categories/{id}/products', [InventortManagementControlle::class, 'productsByCategory']);
+        Route::get('/products/filter', [InventortManagementControlle::class, 'filterProducts']);
+
+        Route::post('/requests', [MembershipApprovalController::class, 'store']);
+        Route::get('/requests/pending', [MembershipApprovalController::class, 'getPendingRequests']);
+        Route::get('/requests/approved', [MembershipApprovalController::class, 'getApprovedRequests']);
+        Route::get('/requests/rejected', [MembershipApprovalController::class, 'getRejectedRequest']);
+        Route::get('/requests/all', [MembershipApprovalController::class, 'getAllRequests']);
+        Route::get('/requests/filter', [MembershipApprovalController::class, 'filterAndSortRequests']);
+
+        Route::put('/requests/{id}/status', [MembershipApprovalController::class, 'updateStatus']);
+
+
     });
 
     Route::middleware('role:loan_clerk')->prefix('/loan-clerk')->group(function () {
