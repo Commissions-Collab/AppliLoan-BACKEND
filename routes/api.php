@@ -1,10 +1,16 @@
 <?php
+
+use App\Http\Controllers\Admin\AnalyticsController;
 use App\Http\Controllers\Member\AppliancesController;
 use App\Http\Controllers\Member\DashboardController;
 use App\Http\Controllers\Member\LoanMonitoringController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
+
+Route::get('/', function () {
+    return 'API IS WORKING';
+});
 
 Route::get('/user', function (Request $request) {
     return $request->user();
@@ -15,8 +21,11 @@ Route::post('/login', [AuthController::class, 'login']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('role:admin')->prefix('/admin')->group(function () {
-        Route::get('dashboard', function () {
-            return response()->json(['message' => 'Admin Dashboard']);
+        Route::controller(AnalyticsController::class)->group(function () {
+            Route::get('/dashboard', 'dashboardData');
+            Route::get('/sales-analytics', 'salesAnalytics');
+            Route::get('/loan-analytics', 'loanAnalytics');
+            Route::get('/members-analytics', 'memberAnalytics');
         });
     });
 

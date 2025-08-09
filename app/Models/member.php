@@ -57,7 +57,14 @@ class Member extends Model
     {
         return $this->hasManyThrough(Loan::class, LoanApplication::class);
     }
+    
+    public function memberLogins () {
+        return $this->hasMany(MemberLogin::class);
+    }
 
+    public function memberEngagements() {
+        return $this->hasMany(MemberEngagement::class);
+    }
     // Accessors
     public function getTotalIncomeAttribute()
     {
