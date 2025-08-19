@@ -33,11 +33,24 @@ class AuthController extends Controller
         // Create the user
         $user = User::create([
             'email' => $data['email'],
-            'full_name' => $data['full_name'] ?? null,
             'password' => Hash::make($data['password']),
             'role' => $data['role'],
             'is_verified' => false,
         ]);
+
+        // Create member only if role is 'member'
+        if ($data['role'] === 'member') {
+            member::create([
+                'user_id' => $user->id,
+                'member_number' => 'MEM' . str_pad($user->id, 6, '0', STR_PAD_LEFT),
+                'full_name' => $data['full_name'],
+                'phone_number' => $data['phone_number'],
+                'address' => $data['address'],
+            ]);
+        }
+
+        DB::commit();
+
         return response()->json([
             'message' => 'User registered successfully',
             'user' => $user,
