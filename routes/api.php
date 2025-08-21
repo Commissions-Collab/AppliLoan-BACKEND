@@ -55,7 +55,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
 
         Route::controller(AppliancesLoanController::class)->group(function () {
-            Route::get('/appliancesLoan/applications', 'index');
+            Route::get('/appliances-loan/applications', 'index');
+            Route::get('/appliances-loan/show/{id}', 'show');
+            Route::post('/appliances-loan/approved/{id}', 'approvedApplication');
+            Route::patch('/appliances-loan/reject/{id}', 'rejectApplication');
         });
     });
 
