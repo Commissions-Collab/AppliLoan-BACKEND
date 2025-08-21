@@ -31,16 +31,16 @@ class AuthController extends Controller
                 'is_verified' => false,
             ]);
 
-            // Create member only if role is 'member'
-            if ($data['role'] === 'member') {
-                member::create([
-                    'user_id' => $user->id,
-                    'full_name' => $data['full_name'],
-                    'email' => $data['email'],
-                    'phone_number' => $data['phone_number'],
-                    'address' => $data['address'],
-                ]);
-            }
+        // Create member only if role is 'member'
+        if ($data['role'] === 'member') {
+            member::create([
+                'user_id' => $user->id,
+                'full_name' => $data['full_name'],
+                'email' => $data['email'],
+                'phone_number' => $data['phone_number'],
+                'address' => $data['address'],
+            ]);
+        }
 
             DB::commit();
 
