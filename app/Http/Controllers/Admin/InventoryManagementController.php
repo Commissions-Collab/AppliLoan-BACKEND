@@ -8,7 +8,7 @@ use App\Models\Product;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
-class InventortManagementControlle extends Controller
+class InventoryManagementController extends Controller
 {
      public function storeCategory(Request $request){
         $validated = $request -> validate([

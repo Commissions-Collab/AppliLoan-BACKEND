@@ -1,4 +1,9 @@
 <?php
+
+use App\Http\Controllers\Admin\AnalyticsController;
+use App\Http\Controllers\Admin\AppliancesLoanController;
+use App\Http\Controllers\Admin\InventoryManagementController;
+use App\Http\Controllers\Admin\MembershipApprovalController;
 use App\Http\Controllers\Member\AppliancesController;
 use App\Http\Controllers\Member\DashboardController;
 use App\Http\Controllers\Member\LoanMonitoringController;
@@ -25,18 +30,18 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/loan-analytics', 'loanAnalytics');
             Route::get('/members-analytics', 'memberAnalytics');
         });
-        Route::post('/category', [InventortManagementControlle::class,'storeCategory']);
-        Route::put('/category/{id}', [InventortManagementControlle::class,'updateCategory']);
-        Route::delete('/category/{id}', [InventortManagementControlle::class,'deleteCategory']);
-        Route::get('/category', [InventortManagementControlle::class,'indexCategory']);
+        Route::post('/category', [InventoryManagementController::class, 'storeCategory']);
+        Route::put('/category/{id}', [InventoryManagementController::class, 'updateCategory']);
+        Route::delete('/category/{id}', [InventoryManagementController::class, 'deleteCategory']);
+        Route::get('/category', [InventoryManagementController::class, 'indexCategory']);
 
-        Route::post('/products', [InventortManagementControlle::class,'storeProduct']);
-        Route::PUT('/products/{id}', [InventortManagementControlle::class,'updateProduct']);
-        Route::delete('/products/{id}', [InventortManagementControlle::class,'destroyProduct']);
-        Route::get('/products', [InventortManagementControlle::class,'indexProduct']);
-        Route::get('/products/name/{name}', [InventortManagementControlle::class, 'showByName']);
-        Route::get('/categories/{id}/products', [InventortManagementControlle::class, 'productsByCategory']);
-        Route::get('/products/filter', [InventortManagementControlle::class, 'filterProducts']);
+        Route::post('/products', [InventoryManagementController::class, 'storeProduct']);
+        Route::PUT('/products/{id}', [InventoryManagementController::class, 'updateProduct']);
+        Route::delete('/products/{id}', [InventoryManagementController::class, 'destroyProduct']);
+        Route::get('/products', [InventoryManagementController::class, 'indexProduct']);
+        Route::get('/products/name/{name}', [InventoryManagementController::class, 'showByName']);
+        Route::get('/categories/{id}/products', [InventoryManagementController::class, 'productsByCategory']);
+        Route::get('/products/filter', [InventoryManagementController::class, 'filterProducts']);
 
         Route::post('/requests', [MembershipApprovalController::class, 'store']);
         Route::get('/requests/pending', [MembershipApprovalController::class, 'getPendingRequests']);
@@ -48,6 +53,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/requests/{id}/status', [MembershipApprovalController::class, 'updateStatus']);
 
 
+
+        Route::controller(AppliancesLoanController::class)->group(function () {
+            Route::get('/appliancesLoan/applications', 'index');
+        });
     });
 
     Route::middleware('role:loan_clerk')->prefix('/loan-clerk')->group(function () {

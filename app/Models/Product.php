@@ -34,4 +34,9 @@ class Product extends Model
     {
         return $this->hasMany(LoanApplication::class);
     }
+
+    public function notifications()
+    {
+        return $this->morphMany(Notification::class, 'notifiable');
+    }
 }

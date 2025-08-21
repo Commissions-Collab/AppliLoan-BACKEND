@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Helpers\DashboardDataHelper;
 use App\Helpers\LoanAnalyticsHelper;
 use App\Helpers\MemberAnalyticsHelper;
 use App\Helpers\SalesAnalyticsHelper;
@@ -18,7 +19,7 @@ use Illuminate\Support\Facades\Cache;
 
 class AnalyticsController extends Controller
 {
-    public function dashboardData()
+    public function dashboardData(Request $request)
     {
         $admin = Auth::user();
 
@@ -29,16 +30,21 @@ class AnalyticsController extends Controller
             ]);
         }
 
+        $year = $request->get('year', Carbon::now()->year);
         $memberCount = Member::where('status', 'active')->count();
         $loansCount = Loan::where('status', 'active')->count();
         $inventoryItems = Product::where('status', 'active')->count();
 
-        return Cache::remember('dashboard_overview', 3600, function () use ($memberCount, $loansCount, $inventoryItems) {
+        $cacheKey = "dashboard_overview_{$year}";
+
+        return Cache::remember($cacheKey, 3600, function () use ($memberCount, $loansCount, $inventoryItems, $year) {
             return response()->json([
                 'total_members' => $memberCount,
                 'active_loans' => $loansCount,
                 'inventory_items' => $inventoryItems,
-                'monthly_revenue' => $this->getCurrentMonthRevenue()
+                'monthly_revenue' => DashboardDataHelper::getCurrentMonthRevenue(),
+                'monthly_sales' => DashboardDataHelper::getMonthlySalesOverview($year),
+                'notifications' => DashboardDataHelper::getRecentNotications()
             ]);
         });
     }
@@ -115,12 +121,5 @@ class AnalyticsController extends Controller
                 'member_activity' => MemberAnalyticsHelper::getMemberActivity($period)
             ]);
         });
-    }
-
-    private function getCurrentMonthRevenue()
-    {
-        return LoanPayment::whereYear('payment_date', date('Y'))
-            ->whereMonth('payment_date', date('n'))
-            ->sum('amount_paid');
     }
 }
