@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\AnalyticsController;
 use App\Http\Controllers\Admin\AppliancesLoanController;
 use App\Http\Controllers\Admin\InventoryManagementController;
+use App\Http\Controllers\Admin\LoanPaymentController;
 use App\Http\Controllers\Admin\MembershipApprovalController;
 use App\Http\Controllers\Member\AppliancesController;
 use App\Http\Controllers\Member\DashboardController;
@@ -60,6 +61,8 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('/appliances-loan/approved/{id}', 'approvedApplication');
             Route::patch('/appliances-loan/reject/{id}', 'rejectApplication');
         });
+
+        Route::get('/loan-payments', [LoanPaymentController::class, 'getLoanPayment']);
     });
 
     Route::middleware('role:loan_clerk')->prefix('/loan-clerk')->group(function () {
