@@ -52,4 +52,9 @@ class LoanApplication extends Model
     {
         return $this->hasOne(Loan::class);
     }
+
+    public function notifications()
+    {
+        return $this->morphMany(Notification::class, 'notifiable');
+    }
 }

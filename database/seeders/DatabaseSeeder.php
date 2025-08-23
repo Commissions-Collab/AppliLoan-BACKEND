@@ -291,5 +291,10 @@ class DatabaseSeeder extends Seeder
         if ($paymentCount >= $scheduleCount) {
             $loan->update(['status' => 'closed']);
         }
+
+        $this->call([
+            NotificationSeeder::class,
+            RequestSeeder::class
+        ]);
     }
 }
