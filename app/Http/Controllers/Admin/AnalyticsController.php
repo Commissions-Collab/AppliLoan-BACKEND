@@ -27,28 +27,64 @@ class AnalyticsController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Admin profile is not found'
-            ]);
+            ], 401);
         }
 
         $year = $request->get('year', Carbon::now()->year);
-        $memberCount = Member::where('status', 'active')->count();
-        $loansCount = Loan::where('status', 'active')->count();
-        $inventoryItems = Product::where('status', 'active')->count();
-
         $cacheKey = "dashboard_overview_{$year}";
 
-        $data = Cache::remember($cacheKey, 3600, function () use ($memberCount, $loansCount, $inventoryItems, $year) {
+        $data = Cache::remember($cacheKey, 3600, function () use ($year) {
+            // Get current counts (not cached as they change frequently)
+            $memberCount = Member::where('status', 'active')->count();
+            $loansCount = Loan::where('status', 'active')->count();
+            $inventoryItems = Product::where('status', 'active')->count();
+            $monthlyRevenue = DashboardDataHelper::getCurrentMonthRevenue();
+
+            // Get cached data
+            $monthlySales = DashboardDataHelper::getMonthlySalesOverview($year);
+            $notifications = DashboardDataHelper::getRecentNotications();
+
+            // Format monthly sales for chart
+            $chartLabels = [];
+            $chartData = [];
+
+            foreach ($monthlySales as $sale) {
+                $chartLabels[] = $sale['month'];
+                $chartData[] = $sale['sales'];
+            }
+
             return [
-                'total_members' => $memberCount,
-                'active_loans' => $loansCount,
-                'inventory_items' => $inventoryItems,
-                'monthly_revenue' => DashboardDataHelper::getCurrentMonthRevenue(),
-                'monthly_sales' => DashboardDataHelper::getMonthlySalesOverview($year),
-                'notifications' => DashboardDataHelper::getRecentNotications()
+                // Card stats
+                'stats' => [
+                    'total_members' => $memberCount,
+                    'active_loans' => $loansCount,
+                    'inventory_items' => $inventoryItems,
+                    'monthly_revenue' => $monthlyRevenue
+                ],
+
+                // Chart data
+                'monthly_sales_chart' => [
+                    'labels' => $chartLabels,
+                    'data' => $chartData,
+                    'year' => $year
+                ],
+
+                // Raw monthly sales data
+                'monthly_sales' => $monthlySales,
+
+                // Notifications
+                'notifications' => $notifications,
+
+                // Metadata
+                'current_year' => $year,
+                'generated_at' => now()->toISOString()
             ];
         });
 
-        return response()->json($data);
+        return response()->json([
+            'success' => true,
+            'data' => $data
+        ]);
     }
 
     public function salesAnalytics(Request $request)
