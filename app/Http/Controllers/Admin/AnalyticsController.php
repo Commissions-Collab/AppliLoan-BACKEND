@@ -3,13 +3,12 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Helpers\DashboardDataHelper;
+use App\Helpers\DividendAnalyticsHelper;
 use App\Helpers\LoanAnalyticsHelper;
 use App\Helpers\MemberAnalyticsHelper;
 use App\Helpers\SalesAnalyticsHelper;
 use App\Http\Controllers\Controller;
 use App\Models\Loan;
-use App\Models\LoanApplication;
-use App\Models\LoanPayment;
 use App\Models\Member;
 use App\Models\Product;
 use Carbon\Carbon;
@@ -114,23 +113,53 @@ class AnalyticsController extends Controller
         return response()->json($data);
     }
 
-    // public function dividendAnalytics(Request $request) {
-    //      $year = $request->get('year', date('Y'));
-    //     $cacheKey = "dividend_analytics_{$year}";
+    public function dividendAnalytics(Request $request)
+    {
+        if (!Auth::user()) {
+            return response()->json(['success' => false, 'message' => 'Admin profile is not found'], 401);
+        }
 
-    //     return Cache::remember($cacheKey, 3600, function () use ($year) {
-    //         return response()->json([
-    //             'total_dividends_paid' => $this->getTotalDividendsPaid(),
-    //             'latest_annual_dividend' => $this->getLatestAnnualDividend(),
-    //             'average_yield' => $this->getAverageYield(),
-    //             'quarterly_dividends' => $this->getQuarterlyDividends($year),
-    //             'annual_dividend_yield' => $this->getAnnualDividendYield()
-    //         ]);
-    //     });
-    // }
+        $year = $request->input('year', date('Y'));
+        $quarter = $request->input('quarter'); // Null if not present
+        $cacheKey = "dividend_analytics_{$year}" . ($quarter ? "_q{$quarter}" : '');
+
+        // **FIX 2: Calculate ONCE and derive metrics from the result**
+        $data = Cache::remember($cacheKey, 3600, function () use ($year, $quarter) {
+            // Get the entire distribution payload once.
+            $distributionData = DividendAnalyticsHelper::getDynamicDividendDistribution($year, $quarter);
+
+            // Derive all other metrics from this single result.
+            $totalDividends = collect($distributionData['distribution'])->sum('annual_dividend');
+
+            $totalShare = $distributionData['total_share_capital'];
+            $averageYield = $totalShare > 0 ? $distributionData['total_dividend_pool'] / $totalShare : 0;
+
+            return [
+                'total_dividends_paid' => $totalDividends,
+                'latest_annual_dividend' => $totalDividends, // Assuming this is the same for the period
+                'average_yield' => round($averageYield, 2),
+                'quarterly_dividends' => $quarter ? null : DividendAnalyticsHelper::getQuarterlyDividends($year), // Only calculate this if no quarter is specified
+                'annual_dividend_yield' => round($averageYield, 2),
+                'dividend_distribution_table' => $distributionData, // The full payload
+                'member_dividend_breakdown' => $distributionData['distribution'],
+                'dividend_settings' => DividendAnalyticsHelper::getDividendSettings($year, $quarter)
+            ];
+        });
+
+        return response()->json($data);
+    }
 
     public function loanAnalytics(Request $request)
     {
+        $admin = Auth::user();
+
+        if (!$admin) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Admin profile is not found'
+            ]);
+        }
+
         $period = $request->get('period', 'last_6_months');
         $cacheKey = "loan_analytics_{$period}";
 

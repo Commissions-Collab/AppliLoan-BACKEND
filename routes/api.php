@@ -32,6 +32,7 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/sales-analytics', 'salesAnalytics');
             Route::get('/loan-analytics', 'loanAnalytics');
             Route::get('/members-analytics', 'memberAnalytics');
+            Route::get('/dividend-analytics', 'dividendAnalytics');
         });
         Route::post('/category', [InventoryManagementController::class, 'storeCategory']);
         Route::put('/category/{id}', [InventoryManagementController::class, 'updateCategory']);
