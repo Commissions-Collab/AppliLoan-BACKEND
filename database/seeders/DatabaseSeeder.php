@@ -294,7 +294,8 @@ class DatabaseSeeder extends Seeder
 
         $this->call([
             NotificationSeeder::class,
-            RequestSeeder::class
+            RequestSeeder::class,
+            DividendSettingSeeder::class
         ]);
     }
 }
