@@ -6,8 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\LoginRequests;
 use App\Http\Requests\RegisterRequests;
 use App\Models\member;
+use App\Models\MemberLogin;
 use App\Models\User;
-
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth as Auth;
 use Illuminate\Support\Facades\DB;
@@ -31,16 +31,16 @@ class AuthController extends Controller
                 'is_verified' => false,
             ]);
 
-        // Create member only if role is 'member'
-        if ($data['role'] === 'member') {
-            member::create([
-                'user_id' => $user->id,
-                'full_name' => $data['full_name'],
-                'email' => $data['email'],
-                'phone_number' => $data['phone_number'],
-                'address' => $data['address'],
-            ]);
-        }
+            // Create member only if role is 'member'
+            if ($data['role'] === 'member') {
+                member::create([
+                    'user_id' => $user->id,
+                    'full_name' => $data['full_name'],
+                    'email' => $data['email'],
+                    'phone_number' => $data['phone_number'],
+                    'address' => $data['address'],
+                ]);
+            }
 
             DB::commit();
 
@@ -69,6 +69,13 @@ class AuthController extends Controller
         $user = User::where('email', $request->input('email'))->first();
         $token = $user->createToken('auth_token')->plainTextToken;
 
+        if ($user->isMember() && $user->member) {
+            MemberLogin::create([
+                'member_id' => $user->member->id,
+                'login_at' => now()
+            ]); 
+        }
+
         return response()->json([
             'message' => 'Login successful',
             'user' => $user,
@@ -82,16 +89,16 @@ class AuthController extends Controller
      * @param \Illuminate\Http\Request $request
      * @return \Illuminate\Http\JsonResponse
      */
-   public function logout(Request $request)
-{
-    $user = $request->user();
+    public function logout(Request $request)
+    {
+        $user = $request->user();
 
-    if ($user && $user->currentAccessToken()) {
-        $user->currentAccessToken()->delete();
+        if ($user && $user->currentAccessToken()) {
+            $user->currentAccessToken()->delete();
+        }
+
+        return response()->json([
+            'message' => 'Logout successful',
+        ]);
     }
-
-    return response()->json([
-        'message' => 'Logout successful',
-    ]);
-}
 }
