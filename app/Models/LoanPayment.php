@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class LoanPayment extends Model
 {
@@ -27,17 +28,17 @@ class LoanPayment extends Model
         'remaining_balance' => 'decimal:2',
     ];
 
-    public function loan()
+    public function loan(): BelongsTo
     {
         return $this->belongsTo(Loan::class);
     }
 
-    public function schedule()
+    public function schedule(): BelongsTo
     {
         return $this->belongsTo(LoanSchedule::class, 'schedule_id');
     }
 
-    public function receivedBy()
+    public function receivedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'received_by');
     }

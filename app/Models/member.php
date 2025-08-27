@@ -4,6 +4,10 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Member extends Model
 {
@@ -38,32 +42,32 @@ class Member extends Model
     ];
 
     // Relationships
-    public function user()
+    public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
-    public function account()
+    public function account(): HasOne
     {
         return $this->hasOne(MemberAccount::class);
     }
 
-    public function loanApplications()
+    public function loanApplications(): HasMany
     {
         return $this->hasMany(LoanApplication::class);
     }
 
-    public function loans()
+    public function loans(): HasManyThrough
     {
         return $this->hasManyThrough(Loan::class, LoanApplication::class);
     }
 
-    public function memberLogins()
+    public function memberLogins(): HasMany
     {
         return $this->hasMany(MemberLogin::class);
     }
 
-    public function memberEngagements()
+    public function memberEngagements(): HasMany
     {
         return $this->hasMany(MemberEngagement::class);
     }

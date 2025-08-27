@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class Product extends Model
 {
@@ -30,12 +32,12 @@ class Product extends Model
         return $this->belongsTo(Category::class);
     }
 
-    public function loanApplications()
+    public function loanApplications(): HasMany
     {
         return $this->hasMany(LoanApplication::class);
     }
 
-    public function notifications()
+    public function notifications(): MorphMany
     {
         return $this->morphMany(Notification::class, 'notifiable');
     }

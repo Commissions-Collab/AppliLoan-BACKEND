@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class LoanType extends Model
 {
@@ -26,7 +27,7 @@ class LoanType extends Model
         'collateral_required' => 'boolean',
     ];
 
-    public function loanApplications()
+    public function loanApplications(): HasMany
     {
         return $this->hasMany(LoanApplication::class);
     }
