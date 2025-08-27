@@ -23,7 +23,7 @@ class AnalyticsController extends Controller
     {
         $user = Auth::user();
 
-        if($user->role !== UserRole::ADMIN) {
+        if ($user->role !== UserRole::ADMIN) {
             return response()->json(['success' => false, 'message' => 'Admin profile is not found'], 401);
         }
 
@@ -88,7 +88,7 @@ class AnalyticsController extends Controller
     {
         $user = Auth::user();
 
-        if($user->role !== UserRole::ADMIN) {
+        if ($user->role !== UserRole::ADMIN) {
             return response()->json(['success' => false, 'message' => 'Admin profile is not found'], 401);
         }
 
@@ -112,7 +112,7 @@ class AnalyticsController extends Controller
     {
         $user = Auth::user();
 
-        if($user->role !== UserRole::ADMIN) {
+        if ($user->role !== UserRole::ADMIN) {
             return response()->json(['success' => false, 'message' => 'Admin profile is not found'], 401);
         }
 
@@ -120,37 +120,55 @@ class AnalyticsController extends Controller
         $quarter = $request->input('quarter'); // Null if not present
         $cacheKey = "dividend_analytics_{$year}" . ($quarter ? "_q{$quarter}" : '');
 
-        // **FIX 2: Calculate ONCE and derive metrics from the result**
         $data = Cache::remember($cacheKey, 3600, function () use ($year, $quarter) {
             // Get the entire distribution payload once.
             $distributionData = DividendAnalyticsHelper::getDynamicDividendDistribution($year, $quarter);
+
+            // Always get quarterly breakdown, but modify based on filter
+            $quarterlyDividends = null;
+            if (!$quarter) {
+                // Show all quarters when no specific quarter filter
+                $quarterlyDividends = DividendAnalyticsHelper::getQuarterlyDividends($year);
+            } else {
+                // Show only selected quarter data
+                $quarterlyDividends = DividendAnalyticsHelper::getQuarterlyDividends($year, $quarter);
+            }
 
             // Derive all other metrics from this single result.
             $totalDividends = collect($distributionData['distribution'])->sum('annual_dividend');
 
             $totalShare = $distributionData['total_share_capital'];
-            $averageYield = $totalShare > 0 ? $distributionData['total_dividend_pool'] / $totalShare : 0;
+            $averageYield = $totalShare > 0 && $distributionData['total_dividend_pool'] > 0 ?
+                ($distributionData['total_dividend_pool'] / $totalShare) * 100 : 0;
 
             return [
-                'total_dividends_paid' => $totalDividends,
-                'latest_annual_dividend' => $totalDividends, // Assuming this is the same for the period
+                'total_dividends_paid' => round($totalDividends, 2),
+                'latest_annual_dividend' => round($totalDividends, 2),
                 'average_yield' => round($averageYield, 2),
-                'quarterly_dividends' => $quarter ? null : DividendAnalyticsHelper::getQuarterlyDividends($year), // Only calculate this if no quarter is specified
+                'quarterly_dividends' => $quarterlyDividends,
                 'annual_dividend_yield' => round($averageYield, 2),
-                'dividend_distribution_table' => $distributionData, // The full payload
+                'dividend_distribution_table' => $distributionData,
                 'member_dividend_breakdown' => $distributionData['distribution'],
-                'dividend_settings' => DividendAnalyticsHelper::getDividendSettings($year, $quarter)
+                'dividend_settings' => DividendAnalyticsHelper::getDividendSettings($year, $quarter),
+                'applied_filters' => [
+                    'year' => $year,
+                    'quarter' => $quarter,
+                    'filter_description' => $quarter ? "Q{$quarter} {$year}" : "All quarters {$year}"
+                ]
             ];
         });
 
-        return response()->json($data);
+        return response()->json([
+            'success' => true,
+            'data' => $data
+        ]);
     }
 
     public function loanAnalytics(Request $request)
     {
         $user = Auth::user();
 
-        if($user->role !== UserRole::ADMIN) {
+        if ($user->role !== UserRole::ADMIN) {
             return response()->json(['success' => false, 'message' => 'Admin profile is not found'], 401);
         }
 
@@ -175,7 +193,7 @@ class AnalyticsController extends Controller
     {
         $user = Auth::user();
 
-        if($user->role !== UserRole::ADMIN) {
+        if ($user->role !== UserRole::ADMIN) {
             return response()->json(['success' => false, 'message' => 'Admin profile is not found'], 401);
         }
 
