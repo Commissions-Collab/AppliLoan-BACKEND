@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\AnalyticsController;
 use App\Http\Controllers\Admin\AppliancesLoanController;
 use App\Http\Controllers\Admin\InventoryManagementController;
 use App\Http\Controllers\Admin\LoanPaymentController;
+use App\Http\Controllers\Admin\ManageClerkController;
 use App\Http\Controllers\Admin\MembershipApprovalController;
 use App\Http\Controllers\Member\AppliancesController;
 use App\Http\Controllers\Member\DashboardController;
@@ -66,6 +67,9 @@ Route::middleware('auth:sanctum')->group(function () {
         });
 
         Route::get('/loan-payments', [LoanPaymentController::class, 'getLoanPayment']);
+
+
+        Route::apiResource('/clerk-management', ManageClerkController::class);
     });
 
     Route::middleware('role:loan_clerk')->prefix('/loan-clerk')->group(function () {
