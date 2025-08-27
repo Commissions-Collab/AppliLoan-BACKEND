@@ -12,8 +12,29 @@ class DividendAnalyticsHelper
     public static function getTotalDividendsPaid($year, $quarter = null)
     {
         $distribution = self::getDynamicDividendDistribution($year, $quarter);
-        $data =  collect($distribution['distribution'])->sum('annual_dividend');
+        $data = collect($distribution['distribution'])->sum('annual_dividend');
         return round($data, 2);
+    }
+
+
+    public static function getQuarterlyDividends($year, $specificQuarter = null)
+    {
+        // Get the full year distribution
+        $distribution = self::getDynamicDividendDistribution($year, $specificQuarter);
+        $data = [];
+
+        // Extract quarterly data from member breakdowns
+        for ($q = 1; $q <= 4; $q++) {
+            $quarterlyTotal = 0;
+
+            foreach ($distribution['distribution'] as $member) {
+                $quarterlyTotal += $member['quarterly_breakdown']["Q{$q}"] ?? 0;
+            }
+
+            $data["Q{$q}"] = round($quarterlyTotal, 2);
+        }
+
+        return $data;
     }
 
     public static function getLatestAnnualDividend($year)
@@ -31,17 +52,6 @@ class DividendAnalyticsHelper
         $result = $distribution['dividend_rate'] > 0 ? $distribution['dividend_rate'] : ($distribution['total_dividend_pool'] / $distribution['total_share_capital']);
 
         return round($result, 2);
-    }
-
-    public static function getQuarterlyDividends($year)
-    {
-        $quarters = [1, 2, 3, 4];
-        $data = [];
-        foreach ($quarters as $q) {
-            $distribution = self::getDynamicDividendDistribution($year, $q);
-            $data["Q{$q}"] = collect($distribution['distribution'])->sum('annual_dividend');
-        }
-        return $data;
     }
 
     public static function getAnnualDividendYield($year)
@@ -63,7 +73,7 @@ class DividendAnalyticsHelper
     public static function getDividendSettings($year, $quarter = null)
     {
         $settings = DividendSetting::where('year', $year)
-            ->when($quarter, fn ($query) => $query->where('quarter', $quarter))
+            ->when($quarter, fn($query) => $query->where('quarter', $quarter))
             ->first();
 
         if ($settings) {
@@ -78,10 +88,10 @@ class DividendAnalyticsHelper
             'is_approved' => false,
         ];
     }
-    
+
     /** 
      * *The main calculation function
-    */
+     */
     public static function getDynamicDividendDistribution($year, $quarter = null)
     {
         $dividendSettings = self::getDividendSettings($year, $quarter);
@@ -92,7 +102,7 @@ class DividendAnalyticsHelper
             ->get();
 
         $activeMembersCount = $members->count();
-        
+
         $totalShareCapital = $members->sum('account.current_share_capital');
 
         $distribution = [];
@@ -138,58 +148,98 @@ class DividendAnalyticsHelper
     // Updated to accept the member count
     private static function calculateMemberDividend($member, $shareCapital, $totalShareCapital, $settings, $activeMembersCount, $year, $quarter = null)
     {
-        $membershipMonths = self::getMembershipMonthsInPeriod($member->membership_date, $year, $quarter);
-        $prorationFactor = $quarter ? ($membershipMonths / 3) : ($membershipMonths / 12);
-        $prorationFactor = min($prorationFactor, 1); // Ensure it doesn't exceed 100%
+        $membershipDate = Carbon::parse($member->created_at); // Use created_at from member record
+        $prorationFactor = 1;
+        $membershipMonths = 12;
+
+        // If specific quarter is requested
+        if ($quarter) {
+            $membershipMonths = self::getMembershipMonthsInPeriod($membershipDate, $year, $quarter);
+            $prorationFactor = $quarter ? ($membershipMonths / 3) : ($membershipMonths / 12);
+            $prorationFactor = min($prorationFactor, 1);
+        }
 
         $annualDividend = 0;
 
+        // Calculate base annual dividend based on distribution method
         switch ($settings['distribution_method']) {
             case 'percentage_based':
-                $annualDividend = $shareCapital * $settings['dividend_rate'] * $prorationFactor;
+                $annualDividend = $shareCapital * $settings['dividend_rate'];
                 break;
 
-            case '=ortional':
+            case 'proportional':
                 $percentage = $totalShareCapital > 0 ? ($shareCapital / $totalShareCapital) : 0;
-                $annualDividend = $percentage * $settings['total_dividend_pool'] * $prorationFactor;
+                $annualDividend = $percentage * $settings['total_dividend_pool'];
                 break;
 
             case 'equal':
-                $annualDividend = $activeMembersCount > 0 ? ($settings['total_dividend_pool'] / $activeMembersCount) * $prorationFactor : 0;
+                $annualDividend = $activeMembersCount > 0 ? ($settings['total_dividend_pool'] / $activeMembersCount) : 0;
                 break;
 
             case 'hybrid':
                 $proportionalPart = $totalShareCapital > 0 ? (($shareCapital / $totalShareCapital) * $settings['total_dividend_pool'] * 0.7) : 0;
-
                 $equalPart = $activeMembersCount > 0 ? ($settings['total_dividend_pool'] * 0.3) / $activeMembersCount : 0;
-                $annualDividend = ($proportionalPart + $equalPart) * $prorationFactor;
+                $annualDividend = $proportionalPart + $equalPart;
                 break;
         }
 
-        // Remainder of the function is mostly the same...
-        $quarterlyAmount = $quarter ? $annualDividend : ($annualDividend / 4);
+        // Build quarterly breakdown based on when member joined
         $quarterlyBreakdown = [];
+        $totalQuarterlyAmount = 0;
+
+        // If specific quarter requested, only calculate for that quarter
         if ($quarter) {
-            $quarterlyBreakdown["Q{$quarter}"] = round($quarterlyAmount, 2);
-        } else {
             for ($q = 1; $q <= 4; $q++) {
-                $quarterlyBreakdown["Q{$q}"] = round($quarterlyAmount, 2);
+                if ($q === $quarter) {
+                    // Check if member was active during this quarter
+                    $quarterStart = Carbon::create($year, ($q - 1) * 3 + 1, 1);
+                    $quarterEnd = Carbon::create($year, $q * 3, 1)->endOfMonth();
+
+                    if ($membershipDate <= $quarterEnd) {
+                        $quarterlyAmount = ($annualDividend / 4) * $prorationFactor;
+                        $quarterlyBreakdown["Q{$q}"] = round($quarterlyAmount, 2);
+                        $totalQuarterlyAmount += $quarterlyAmount;
+                    } else {
+                        $quarterlyBreakdown["Q{$q}"] = 0;
+                    }
+                } else {
+                    $quarterlyBreakdown["Q{$q}"] = 0;
+                }
+            }
+        } else {
+            // Calculate for all quarters, but only for quarters after member joined
+            for ($q = 1; $q <= 4; $q++) {
+                $quarterStart = Carbon::create($year, ($q - 1) * 3 + 1, 1);
+                $quarterEnd = Carbon::create($year, $q * 3, 1)->endOfMonth();
+
+                // Only assign dividend if member joined before or during this quarter
+                if ($membershipDate <= $quarterEnd) {
+                    // Calculate proration for this specific quarter
+                    $quarterMonths = self::getMembershipMonthsInPeriod($membershipDate, $year, $q);
+                    $quarterProration = min($quarterMonths / 3, 1);
+
+                    $quarterlyAmount = ($annualDividend / 4) * $quarterProration;
+                    $quarterlyBreakdown["Q{$q}"] = round($quarterlyAmount, 2);
+                    $totalQuarterlyAmount += $quarterlyAmount;
+                } else {
+                    $quarterlyBreakdown["Q{$q}"] = 0;
+                }
             }
         }
 
         return [
             'dividend_percentage' => $totalShareCapital > 0 ? round(($shareCapital / $totalShareCapital) * 100, 4) : 0,
-            'annual_dividend' => round($annualDividend, 2),
+            'annual_dividend' => round($totalQuarterlyAmount, 2), // Use actual quarterly total
             'quarterly_breakdown' => $quarterlyBreakdown,
             'proration_factor' => round($prorationFactor, 4),
             'membership_months_in_period' => round($membershipMonths, 2),
         ];
     }
-    
+
     private static function getMembershipMonthsInPeriod($membershipDate, $year, $quarter = null)
     {
         $membershipDate = Carbon::parse($membershipDate);
-        
+
         if ($quarter) {
             $startOfPeriod = Carbon::create($year, ($quarter - 1) * 3 + 1, 1)->startOfDay();
             $endOfPeriod = $startOfPeriod->copy()->addMonths(2)->endOfMonth();
@@ -201,7 +251,7 @@ class DividendAnalyticsHelper
         if ($membershipDate > $endOfPeriod) {
             return 0; // Joined after the period ended
         }
-        
+
         // Start counting from the later of the two dates
         $effectiveStartDate = $membershipDate->max($startOfPeriod);
 
