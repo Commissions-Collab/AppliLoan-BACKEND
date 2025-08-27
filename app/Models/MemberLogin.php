@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class MemberLogin extends Model
 {
@@ -13,7 +14,8 @@ class MemberLogin extends Model
 
     protected $table = 'member_login';
 
-    public function member () {
+    public function member(): BelongsTo
+    {
         return $this->belongsTo(Member::class);
     }
 }

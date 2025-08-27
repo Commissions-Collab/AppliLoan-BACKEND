@@ -6,6 +6,8 @@ namespace App\Models;
 
 use App\Enums\UserRole;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
@@ -68,9 +70,14 @@ class User extends Authenticatable
         return $this->role === UserRole::MEMBER;
     }
 
-    public function member()
+    public function member(): HasOne
     {
         return $this->hasOne(Member::class);
+    }
+
+    public function clerk(): HasOne
+    {
+        return $this->hasOne(LoanClerk::class);
     }
 
     public function processedApplications()
@@ -78,12 +85,12 @@ class User extends Authenticatable
         return $this->hasMany(LoanApplication::class, 'processed_by');
     }
 
-    public function approvedLoans()
+    public function approvedLoans(): HasMany
     {
         return $this->hasMany(Loan::class, 'approved_by');
     }
 
-    public function receivedPayments()
+    public function receivedPayments(): HasMany
     {
         return $this->hasMany(LoanPayment::class, 'received_by');
     }

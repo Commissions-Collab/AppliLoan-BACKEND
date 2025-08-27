@@ -4,6 +4,9 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOneThrough;
 
 class Loan extends Model
 {
@@ -36,27 +39,27 @@ class Loan extends Model
     ];
 
     // Relationships
-    public function application()
+    public function application(): BelongsTo
     {
         return $this->belongsTo(LoanApplication::class, 'loan_application_id');
     }
 
-    public function member()
+    public function member(): HasOneThrough
     {
         return $this->hasOneThrough(Member::class, LoanApplication::class, 'id', 'id', 'loan_application_id', 'member_id');
     }
 
-    public function approvedBy()
+    public function approvedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'approved_by');
     }
 
-    public function schedules()
+    public function schedules(): HasMany
     {
         return $this->hasMany(LoanSchedule::class);
     }
 
-    public function payments()
+    public function payments(): HasMany
     {
         return $this->hasMany(LoanPayment::class);
     }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\UserRole;
 use App\Helpers\DashboardDataHelper;
 use App\Helpers\DividendAnalyticsHelper;
 use App\Helpers\LoanAnalyticsHelper;
@@ -20,13 +21,10 @@ class AnalyticsController extends Controller
 {
     public function dashboardData(Request $request)
     {
-        $admin = Auth::user();
+        $user = Auth::user();
 
-        if (!$admin) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Admin profile is not found'
-            ], 401);
+        if($user->role !== UserRole::ADMIN) {
+            return response()->json(['success' => false, 'message' => 'Admin profile is not found'], 401);
         }
 
         $year = $request->get('year', Carbon::now()->year);
@@ -88,13 +86,10 @@ class AnalyticsController extends Controller
 
     public function salesAnalytics(Request $request)
     {
-        $admin = Auth::user();
+        $user = Auth::user();
 
-        if (!$admin) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Admin profile is not found'
-            ]);
+        if($user->role !== UserRole::ADMIN) {
+            return response()->json(['success' => false, 'message' => 'Admin profile is not found'], 401);
         }
 
         $year = $request->get('year', Carbon::now()->year);
@@ -115,7 +110,9 @@ class AnalyticsController extends Controller
 
     public function dividendAnalytics(Request $request)
     {
-        if (!Auth::user()) {
+        $user = Auth::user();
+
+        if($user->role !== UserRole::ADMIN) {
             return response()->json(['success' => false, 'message' => 'Admin profile is not found'], 401);
         }
 
@@ -151,13 +148,10 @@ class AnalyticsController extends Controller
 
     public function loanAnalytics(Request $request)
     {
-        $admin = Auth::user();
+        $user = Auth::user();
 
-        if (!$admin) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Admin profile is not found'
-            ]);
+        if($user->role !== UserRole::ADMIN) {
+            return response()->json(['success' => false, 'message' => 'Admin profile is not found'], 401);
         }
 
         $period = $request->get('period', 'last_6_months');
@@ -179,6 +173,12 @@ class AnalyticsController extends Controller
 
     public function memberAnalytics(Request $request)
     {
+        $user = Auth::user();
+
+        if($user->role !== UserRole::ADMIN) {
+            return response()->json(['success' => false, 'message' => 'Admin profile is not found'], 401);
+        }
+
         $period = $request->get('period', 'last_6_months');
         $activityPeriod = $request->get('activity_period', 'this_week');
 
