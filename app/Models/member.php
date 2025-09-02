@@ -49,12 +49,12 @@ class Member extends Model
 
     public function account(): HasOne
     {
-        return $this->hasOne(MemberAccount::class);
+        return $this->hasOne(MemberAccount::class, 'member_id');
     }
 
     public function loanApplications(): HasMany
     {
-        return $this->hasMany(LoanApplication::class);
+        return $this->hasMany(LoanApplication::class, 'member_id');
     }
 
     public function loans(): HasManyThrough

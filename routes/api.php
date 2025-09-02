@@ -5,13 +5,14 @@ use App\Http\Controllers\Admin\AppliancesLoanController;
 use App\Http\Controllers\Admin\InventoryManagementController;
 use App\Http\Controllers\Admin\LoanPaymentController;
 use App\Http\Controllers\Admin\ManageClerkController;
-use App\Http\Controllers\Admin\MembershipApprovalController;
+use App\Http\Controllers\Clerk\MembershipApprovalController;
 use App\Http\Controllers\Member\AppliancesController;
 use App\Http\Controllers\Member\DashboardController;
 use App\Http\Controllers\Member\LoanMonitoringController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Clerk\MemberManagementController;
 
 Route::get('/', function () {
     return 'API IS WORKING';
@@ -48,14 +49,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/categories/{id}/products', [InventoryManagementController::class, 'productsByCategory']);
         Route::get('/products/filter', [InventoryManagementController::class, 'filterProducts']);
 
-        Route::post('/requests', [MembershipApprovalController::class, 'store']);
-        Route::get('/requests/pending', [MembershipApprovalController::class, 'getPendingRequests']);
-        Route::get('/requests/approved', [MembershipApprovalController::class, 'getApprovedRequests']);
-        Route::get('/requests/rejected', [MembershipApprovalController::class, 'getRejectedRequest']);
-        Route::get('/requests/all', [MembershipApprovalController::class, 'getAllRequests']);
-        Route::get('/requests/filter', [MembershipApprovalController::class, 'filterAndSortRequests']);
-
-        Route::put('/requests/{id}/status', [MembershipApprovalController::class, 'updateStatus']);
+       
 
 
 
@@ -76,6 +70,29 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/dashboard', function () {
             return response()->json(['message' => 'Loan Clerk Dashboard']);
         });
+        //membership requests store  routes
+        Route::post('/requests', [MembershipApprovalController::class, 'store']);
+
+        //membership requests view routes
+       // Route::get('/requests/pending', [MembershipApprovalController::class, 'getPendingRequests']);
+       // Route::get('/requests/approved', [MembershipApprovalController::class, 'getApprovedRequests']);
+       // Route::get('/requests/rejected', [MembershipApprovalController::class, 'getRejectedRequest']);
+       // Route::get('/requests/filter', [MembershipApprovalController::class, 'filterAndSortRequests']);
+        Route::get('/requests/all', [MembershipApprovalController::class, 'getAllRequests']);
+        Route::put('/requests/{id}/status', [MembershipApprovalController::class, 'updateStatus']);
+        Route::get('/requests/{id}', [MembershipApprovalController::class, 'showMemberRequests']);
+
+        //member management routes
+        Route::get('/members', [MemberManagementController::class, 'displayAllMembers']);
+        Route::get('/members/count', [MemberManagementController::class, 'countTotalMembers']);
+        Route::get('/members/{loanId}/balance', [MemberManagementController::class, 'showMemberBalance']);
+        Route::get('/members/active/count', [MemberManagementController::class, 'countActiveMember']);
+        Route::get('/members/inactive/count', [MemberManagementController::class, 'countInactiveMember']);
+        Route::get('/members/pending/count', [MemberManagementController::class, 'countPendingMember']);
+        Route::get('/members/{id}', [MemberManagementController::class, 'getMemberDetails']);
+        Route::put('/members/{Id}', [MemberManagementController::class, 'updateMember']);
+        Route::delete('/members/{Id}', [MemberManagementController::class, 'deleteMember']);
+        Route::get('/members/search', [MemberManagementController::class, 'searchMember']);
     });
 
     Route::middleware('role:member')->prefix('/member')->group(function () {

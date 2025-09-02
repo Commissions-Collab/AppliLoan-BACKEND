@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Admin;
+namespace App\Http\Controllers\Clerk;
 
 use App\Http\Controllers\Controller;
 use App\Models\Member;
@@ -42,6 +42,17 @@ class MembershipApprovalController extends Controller
             'message' => 'Request submitted successfully.',
             'data' => $requestData
         ], 201);
+    }
+
+    public function showMemberRequests($id)
+    {
+        $request = ModelRequest::find($id);
+
+        if (!$request) {
+            return response()->json(['message' => 'Request not found'], 404);
+        }
+
+        return response()->json($request);
     }
 
 
