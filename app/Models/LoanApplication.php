@@ -33,17 +33,17 @@ class LoanApplication extends Model
     // Relationships
     public function member(): BelongsTo
     {
-        return $this->belongsTo(Member::class);
+        return $this->belongsTo(Member::class, 'member_id');
     }
 
     public function loanType(): BelongsTo
     {
-        return $this->belongsTo(LoanType::class);
+        return $this->belongsTo(LoanType::class, 'loan_type_id');
     }
 
     public function product(): BelongsTo
     {
-        return $this->belongsTo(Product::class);
+        return $this->belongsTo(Product::class, 'product_id');
     }
 
     public function processedBy(): BelongsTo

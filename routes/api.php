@@ -12,6 +12,8 @@ use App\Http\Controllers\Member\LoanMonitoringController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Clerk\LoanApplicationsController;
+use App\Http\Controllers\Clerk\LoanPaymentsController;
 use App\Http\Controllers\Clerk\MemberManagementController;
 
 Route::get('/', function () {
@@ -93,6 +95,18 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/members/{Id}', [MemberManagementController::class, 'updateMember']);
         Route::delete('/members/{Id}', [MemberManagementController::class, 'deleteMember']);
         Route::get('/members/search', [MemberManagementController::class, 'searchMember']);
+
+        //loan applications routes
+        Route::get('/loan-applications', [LoanApplicationsController::class, 'displayLoanApplication']);
+        Route::get('/loan-applications/{id}', [LoanApplicationsController::class, 'showLoanApplication']);
+        Route::put('/loan-applications/{id}/status', [LoanApplicationsController::class, 'updateLoanApplication']);
+        Route::delete('/loan-applications/{id}', [LoanApplicationsController::class, 'deleteLoanApplication']);
+        Route::get('/loan-applications/search', [LoanApplicationsController::class, 'searchLoanApplications']);
+        Route::get('/loan-applications/status/count', [LoanApplicationsController::class, 'countLoanApplicationsByStatus']);
+        Route::get('/loan-applications/all/count', [LoanApplicationsController::class, 'countTotalLoanApplications']);
+
+        //loan payments routes
+        Route::get('/loan-payments', [LoanPaymentsController::class, 'displayPayMents']);
     });
 
     Route::middleware('role:member')->prefix('/member')->group(function () {

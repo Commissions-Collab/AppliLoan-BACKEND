@@ -62,14 +62,17 @@ class MemberManagementController extends Controller
         return response()->json($member);
     }
     public function updateMember(Request $request, $Id){
+        $updateStatus = $request->validate([
+            'status' => 'required|in:active,inactive,pending'
+        ]);
         $member = Member::find($Id);
         if (!$member) {
             return response()->json(['message' => 'Member not found'], 404);
         }
-        $member->update($request->all());
-        return response()->json(['message' => 'Member updated successfully', 'member' => $member]);
-        
+        $member->update($updateStatus);
+        return response()->json(['message' => 'Member status updated successfully', 'member' => $member]); 
     }
+
     public function deleteMember($Id){
         $member = Member::find($Id);
         if (!$member) {
