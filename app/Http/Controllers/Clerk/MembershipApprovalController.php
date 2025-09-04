@@ -10,40 +10,6 @@ use Illuminate\Support\Facades\DB;
 
 class MembershipApprovalController extends Controller
 {
-
-    public function store(Request $request)
-    {
-         $validated = $request->validate([
-        'request_to' => 'required|exists:users,id',
-        'member_number' => 'required|string|unique:requests,member_number',
-        'full_name' => 'required|string|max:255',
-        'phone_number' => 'required|string|max:20',
-        'street_address' => 'nullable|string|max:255',
-        'city' => 'nullable|string|max:100',
-        'province' => 'nullable|string|max:100',
-        'postal_code' => 'nullable|string|max:10',
-        'tin_number' => 'nullable|string|max:20',
-        'date_of_birth' => 'nullable|date',
-        'place_of_birth' => 'nullable|string|max:100',
-        'age' => 'nullable|integer',
-        'dependents' => 'nullable|integer',
-        'employer' => 'nullable|string|max:255',
-        'position' => 'nullable|string|max:100',
-        'monthly_income' => 'nullable|numeric',
-        'other_income' => 'nullable|numeric',
-        'monthly_disposable_income_range' => 'nullable|in:0-5000,5001-10000,10001-20000,20001+',
-        'status' => 'in:pending,approved,rejected'
-    ]);
-        $validated['status'] = $validated['status'] ?? 'pending';
-
-        $requestData = ModelRequest::create($validated);
-
-        return response()->json([
-            'message' => 'Request submitted successfully.',
-            'data' => $requestData
-        ], 201);
-    }
-
     public function showMemberRequests($id)
     {
         $request = ModelRequest::find($id);
@@ -131,25 +97,32 @@ class MembershipApprovalController extends Controller
 
             if (!$existingMember) {
                 Member::create([
-                    'user_id' => $userRequest->id,
+                    'user_id' => $userRequest->user_id,
                     'member_number' => $userRequest->member_number,
                     'full_name' => $userRequest->full_name,
                     'phone_number' => $userRequest->phone_number,
-                    'street_address' => $userRequest->street_address,
-                    'city' => $userRequest->city,
-                    'province' => $userRequest->province,
-                    'postal_code' => $userRequest->postal_code,
+                    'address' => $userRequest->address,
                     'tin_number' => $userRequest->tin_number,
                     'date_of_birth' => $userRequest->date_of_birth,
                     'place_of_birth' => $userRequest->place_of_birth,
                     'age' => $userRequest->age,
+                    'civil_status' => $userRequest->civil_status,
+                    'religion' => $userRequest->religion,
                     'dependents' => $userRequest->dependents,
                     'employer' => $userRequest->employer,
                     'position' => $userRequest->position,
                     'monthly_income' => $userRequest->monthly_income,
                     'other_income' => $userRequest->other_income,
-                    'monthly_disposable_income_range' => $userRequest->monthly_disposable_income_range,
-                    'status' => 'active',
+                    'share_capital' => $userRequest->share_capital,
+                    'fixed_deposit' => $userRequest->fixed_deposit,
+                    'seminar_date' => $userRequest->seminar_date,
+                    'venue' => $userRequest->venue,
+                    'status' => 'approved',
+                    'brgy_clearance' => $userRequest->brgy_clearance,
+                    'birth_cert' => $userRequest->birth_cert,
+                    'certificate_of_employment' => $userRequest->certificate_of_employment,
+                    'applicant_photo' => $userRequest->applicant_photo,
+                    'valid_id' => $userRequest->valid_id,
                 ]);
             }
         }

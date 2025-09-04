@@ -17,7 +17,5 @@ class LoanPaymentsController extends Controller
             ->with('loan.application.product:id,name')
             ->get();
         return response()->json($displayPayments);
-           
-        
     }
 }
