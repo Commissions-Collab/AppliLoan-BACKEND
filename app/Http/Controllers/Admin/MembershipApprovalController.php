@@ -44,8 +44,6 @@ class MembershipApprovalController extends Controller
         ], 201);
     }
 
-
-
     public function getPendingRequests()
      {
             $pendingRequests = ModelRequest::where('status', 'pending')->get();
@@ -67,13 +65,11 @@ class MembershipApprovalController extends Controller
         return response()->json($approvedRequests);
     }
 
-
     public function getAllRequests()
     {
         $requests = ModelRequest::orderBy('created_at', 'desc')->get();
         return response()->json($requests);
     }
-
 
     public function filterAndSortRequests(Request $request)
     {
@@ -97,67 +93,69 @@ class MembershipApprovalController extends Controller
         return response()->json($requests);
     }
 
-
-
-    // Membership Approval fuction 
-
+    // Membership Approval function 
     public function updateStatus(Request $request, $id)
-{
-    $request->validate([
-        'status' => 'required|in:pending,approved,rejected',
-    ]);
-
-    DB::beginTransaction();
-
-    try {
-        $userRequest = ModelRequest::findOrFail($id);
-        $userRequest->status = $request->status;
-        $userRequest->save();
-
-        if ($request->status === 'approved') {
-            // Check if already a member (prevent duplicate entry)
-            $existingMember = Member::where('member_number', $userRequest->member_number)->first();
-
-            if (!$existingMember) {
-                Member::create([
-                    'user_id' => $userRequest->id,
-                    'member_number' => $userRequest->member_number,
-                    'full_name' => $userRequest->full_name,
-                    'phone_number' => $userRequest->phone_number,
-                    'street_address' => $userRequest->street_address,
-                    'city' => $userRequest->city,
-                    'province' => $userRequest->province,
-                    'postal_code' => $userRequest->postal_code,
-                    'tin_number' => $userRequest->tin_number,
-                    'date_of_birth' => $userRequest->date_of_birth,
-                    'place_of_birth' => $userRequest->place_of_birth,
-                    'age' => $userRequest->age,
-                    'dependents' => $userRequest->dependents,
-                    'employer' => $userRequest->employer,
-                    'position' => $userRequest->position,
-                    'monthly_income' => $userRequest->monthly_income,
-                    'other_income' => $userRequest->other_income,
-                    'monthly_disposable_income_range' => $userRequest->monthly_disposable_income_range,
-                    'status' => 'active',
-                ]);
-            }
-        }
-
-        DB::commit();
-
-        return response()->json([
-            'message' => 'Status updated successfully.',
-            'data' => $userRequest,
+    {
+        $request->validate([
+            'status' => 'required|in:pending,approved,rejected',
         ]);
 
-    } catch (\Exception $e) {
-        DB::rollBack();
+        DB::beginTransaction();
 
-        return response()->json([
-            'message' => 'Failed to update status.',
-            'error' => $e->getMessage(),
-        ], 500);
+        try {
+            $userRequest = ModelRequest::findOrFail($id);
+            $userRequest->status = $request->status;
+            $userRequest->save();
+
+            if ($request->status === 'approved') {
+                // Check if already a member (prevent duplicate entry)
+                $existingMember = Member::where('member_number', $userRequest->member_number)->first();
+
+                if (!$existingMember) {
+                    Member::create([
+                        'user_id' => $userRequest->id,
+                        'member_number' => $userRequest->member_number,
+                        'full_name' => $userRequest->full_name,
+                        'phone_number' => $userRequest->phone_number,
+                        'street_address' => $userRequest->street_address,
+                        'city' => $userRequest->city,
+                        'province' => $userRequest->province,
+                        'postal_code' => $userRequest->postal_code,
+                        'tin_number' => $userRequest->tin_number,
+                        'date_of_birth' => $userRequest->date_of_birth,
+                        'place_of_birth' => $userRequest->place_of_birth,
+                        'age' => $userRequest->age,
+                        'dependents' => $userRequest->dependents,
+                        'employer' => $userRequest->employer,
+                        'position' => $userRequest->position,
+                        'monthly_income' => $userRequest->monthly_income,
+                        'other_income' => $userRequest->other_income,
+                        'monthly_disposable_income_range' => $userRequest->monthly_disposable_income_range,
+                        'status' => 'active',
+                    ]);
+                }
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Status updated successfully.',
+                'data' => $userRequest,
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'message' => 'Failed to update status.',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
     }
-}
 
-}
+    public function show($id)
+    {
+        $requestItem = ModelRequest::findOrFail($id);
+        return response()->json($requestItem);
+    }
+} 

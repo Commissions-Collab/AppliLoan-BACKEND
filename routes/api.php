@@ -51,9 +51,15 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/requests', [MembershipApprovalController::class, 'store']);
         Route::get('/requests/pending', [MembershipApprovalController::class, 'getPendingRequests']);
         Route::get('/requests/approved', [MembershipApprovalController::class, 'getApprovedRequests']);
-        Route::get('/requests/rejected', [MembershipApprovalController::class, 'getRejectedRequest']);
+        Route::get('/requests/rejected', [MembershipApprovalController::class, 'getRejectedRequests']);
         Route::get('/requests/all', [MembershipApprovalController::class, 'getAllRequests']);
         Route::get('/requests/filter', [MembershipApprovalController::class, 'filterAndSortRequests']);
+        Route::get('/requests/{id}', [MembershipApprovalController::class, 'show']);
+
+        // Members listing (approved members)
+        Route::get('/members', function () {
+            return \App\Models\Member::orderByDesc('created_at')->get();
+        });
 
         Route::put('/requests/{id}/status', [MembershipApprovalController::class, 'updateStatus']);
 
@@ -75,6 +81,20 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('role:loan_clerk')->prefix('/loan-clerk')->group(function () {
         Route::get('/dashboard', function () {
             return response()->json(['message' => 'Loan Clerk Dashboard']);
+        });
+
+        // Membership requests management for loan clerks
+        Route::get('/requests/pending', [MembershipApprovalController::class, 'getPendingRequests']);
+        Route::get('/requests/approved', [MembershipApprovalController::class, 'getApprovedRequests']);
+        Route::get('/requests/rejected', [MembershipApprovalController::class, 'getRejectedRequests']);
+        Route::get('/requests/all', [MembershipApprovalController::class, 'getAllRequests']);
+        Route::get('/requests/filter', [MembershipApprovalController::class, 'filterAndSortRequests']);
+        Route::get('/requests/{id}', [MembershipApprovalController::class, 'show']);
+        Route::put('/requests/{id}/status', [MembershipApprovalController::class, 'updateStatus']);
+
+        // Members listing for loan clerks
+        Route::get('/members', function () {
+            return \App\Models\Member::orderByDesc('created_at')->get();
         });
     });
 
