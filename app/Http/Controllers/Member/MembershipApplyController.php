@@ -24,20 +24,36 @@ class MembershipApplyController extends Controller
             'civil_status' => 'nullable|in:single,married,widowed,separated',
             'religion' => 'nullable|string|max:100',
             'tin_number' => 'nullable|integer',
+            'status' => 'nullable|in:pending,approved,rejected',
+
+            // employment details
             'employer' => 'nullable|string|max:255',
             'position' => 'nullable|string|max:100',
             'monthly_income' => 'nullable|numeric',
             'other_income' => 'nullable|string|max:255',
-            'dependents' => 'nullable|integer',
+            
+            // seminar details
             'seminar_date' => 'required|string|max:100',
             'venue' => 'required|string|max:255',
+
+
+            //spouse details
+            'spouse_name' => 'nullable|string|max:255',
+            'spouse_employer' => 'nullable|string|max:255',
+            'spouse_monthly_income' => 'nullable|numeric',
+            'spouse_birth_day' => 'nullable|date',
+
+            //child details
+            'number_of_children' => 'nullable|integer',
+            
 
             // Accept files instead of strings
             'brgy_clearance' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:2048',
             'birth_cert' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:2048',
             'certificate_of_employment' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:2048',
             'applicant_photo' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
-            'valid_id' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:2048',
+            'valid_id_front' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:2048',
+            'valid_id_back' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:2048',
         ]);
 
         // Handle file uploads and store their paths
@@ -46,7 +62,8 @@ class MembershipApplyController extends Controller
             'birth_cert',
             'certificate_of_employment',
             'applicant_photo',
-            'valid_id'
+            'valid_id_front',
+            'valid_id_back',
         ];
 
         foreach ($fileFields as $field) {

@@ -138,7 +138,6 @@ class DatabaseSeeder extends Seeder
                 'position' => fake()->jobTitle(),
                 'monthly_income' => $testMemberData['monthly_income'],
                 'other_income' => fake()->word(),
-                'dependents' => fake()->numberBetween(1, 3),
                 'share_capital' => 20.00,
                 'fixed_deposit' => fake()->randomFloat(2, 0, 10000),
                 'seminar_date' => now()->format('Y-m-d'),
@@ -148,7 +147,13 @@ class DatabaseSeeder extends Seeder
                 'birth_cert' => null,
                 'certificate_of_employment' => null,
                 'applicant_photo' => null,
-                'valid_id' => null,
+                'valid_id_back' => null,
+                'valid_id_front' => null,
+                'number_of_children' => fake()->numberBetween(0, 5),
+                'spouse_name' => fake()->name(),
+                'spouse_employer' => fake()->company(),
+                'spouse_monthly_income' => fake()->randomFloat(2, 0, 50000),
+                'spouse_birth_day' => fake()->dateTimeBetween('-40 years', '-20 years')->format('Y-m-d'),
             ]);
 
             // Create member account

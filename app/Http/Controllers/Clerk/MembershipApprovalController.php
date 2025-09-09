@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Clerk;
 use App\Http\Controllers\Controller;
 use App\Models\Member;
 use App\Models\ModelRequest;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -82,6 +83,7 @@ class MembershipApprovalController extends Controller
 {
     $request->validate([
         'status' => 'required|in:pending,approved,rejected',
+        'is_member' => 'sometimes|boolean',
     ]);
 
     DB::beginTransaction();
@@ -90,11 +92,19 @@ class MembershipApprovalController extends Controller
         $userRequest = ModelRequest::findOrFail($id);
         $userRequest->status = $request->status;
         $userRequest->save();
-
+        // If approved, create a new member record
         if ($request->status === 'approved') {
             // Check if already a member (prevent duplicate entry)
             $existingMember = Member::where('member_number', $userRequest->member_number)->first();
 
+            // Update user membership flag only if provided
+            $user = User::findOrFail($userRequest->user_id);
+            if ($request->has('is_member')) {
+                $user->is_member = $request->is_member;
+                $user->save();
+            }
+        
+            
             if (!$existingMember) {
                 Member::create([
                     'user_id' => $userRequest->user_id,
@@ -108,7 +118,11 @@ class MembershipApprovalController extends Controller
                     'age' => $userRequest->age,
                     'civil_status' => $userRequest->civil_status,
                     'religion' => $userRequest->religion,
-                    'dependents' => $userRequest->dependents,
+                    'number_of_children' => $userRequest->number_of_children,
+                    'spouse_name' => $userRequest->spouse_name,
+                    'spouse_employer' => $userRequest->spouse_employer,
+                    'spouse_monthly_income' => $userRequest->spouse_monthly_income,
+                    'spouse_birth_day' => $userRequest->spouse_birth_day,
                     'employer' => $userRequest->employer,
                     'position' => $userRequest->position,
                     'monthly_income' => $userRequest->monthly_income,
@@ -122,7 +136,8 @@ class MembershipApprovalController extends Controller
                     'birth_cert' => $userRequest->birth_cert,
                     'certificate_of_employment' => $userRequest->certificate_of_employment,
                     'applicant_photo' => $userRequest->applicant_photo,
-                    'valid_id' => $userRequest->valid_id,
+                    'valid_id_front' => $userRequest->valid_id_front,
+                    'valid_id_back' => $userRequest->valid_id_back,
                 ]);
             }
         }
