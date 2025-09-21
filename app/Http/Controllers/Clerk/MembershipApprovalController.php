@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Clerk;
 use App\Http\Controllers\Controller;
 use App\Models\Member;
 use App\Models\ModelRequest;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -72,46 +73,53 @@ class MembershipApprovalController extends Controller
 
     // Membership Approval function 
     public function updateStatus(Request $request, $id)
-    {
-        $request->validate([
-            'status' => 'required|in:pending,approved,rejected',
-        ]);
+{
+    $request->validate([
+        'status' => 'required|in:pending,approved,rejected',
+    ]);
 
         DB::beginTransaction();
 
-        try {
-            $userRequest = ModelRequest::findOrFail($id);
-            $userRequest->status = $request->status;
-            $userRequest->save();
+    try {
+        $userRequest = ModelRequest::findOrFail($id);
+        $userRequest->status = $request->status;
+        $userRequest->save();
 
-            if ($request->status === 'approved') {
-                // Check if already a member (prevent duplicate entry)
-                $existingMember = Member::where('member_number', $userRequest->member_number)->first();
+        if ($request->status === 'approved') {
+            // Check if already a member (prevent duplicate entry)
+            $existingMember = Member::where('member_number', $userRequest->member_number)->first();
 
-                if (!$existingMember) {
-                    Member::create([
-                        'user_id' => $userRequest->id,
-                        'member_number' => $userRequest->member_number,
-                        'full_name' => $userRequest->full_name,
-                        'phone_number' => $userRequest->phone_number,
-                        'street_address' => $userRequest->street_address,
-                        'city' => $userRequest->city,
-                        'province' => $userRequest->province,
-                        'postal_code' => $userRequest->postal_code,
-                        'tin_number' => $userRequest->tin_number,
-                        'date_of_birth' => $userRequest->date_of_birth,
-                        'place_of_birth' => $userRequest->place_of_birth,
-                        'age' => $userRequest->age,
-                        'dependents' => $userRequest->dependents,
-                        'employer' => $userRequest->employer,
-                        'position' => $userRequest->position,
-                        'monthly_income' => $userRequest->monthly_income,
-                        'other_income' => $userRequest->other_income,
-                        'monthly_disposable_income_range' => $userRequest->monthly_disposable_income_range,
-                        'status' => 'active',
-                    ]);
-                }
+            if (!$existingMember) {
+                Member::create([
+                    'user_id' => $userRequest->user_id,
+                    'member_number' => $userRequest->member_number,
+                    'full_name' => $userRequest->full_name,
+                    'phone_number' => $userRequest->phone_number,
+                    'address' => $userRequest->address,
+                    'tin_number' => $userRequest->tin_number,
+                    'date_of_birth' => $userRequest->date_of_birth,
+                    'place_of_birth' => $userRequest->place_of_birth,
+                    'age' => $userRequest->age,
+                    'civil_status' => $userRequest->civil_status,
+                    'religion' => $userRequest->religion,
+                    'dependents' => $userRequest->dependents,
+                    'employer' => $userRequest->employer,
+                    'position' => $userRequest->position,
+                    'monthly_income' => $userRequest->monthly_income,
+                    'other_income' => $userRequest->other_income,
+                    'share_capital' => $userRequest->share_capital,
+                    'fixed_deposit' => $userRequest->fixed_deposit,
+                    'seminar_date' => $userRequest->seminar_date,
+                    'venue' => $userRequest->venue,
+                    'status' => 'approved',
+                    'brgy_clearance' => $userRequest->brgy_clearance,
+                    'birth_cert' => $userRequest->birth_cert,
+                    'certificate_of_employment' => $userRequest->certificate_of_employment,
+                    'applicant_photo' => $userRequest->applicant_photo,
+                    'valid_id' => $userRequest->valid_id,
+                ]);
             }
+        }
 
             DB::commit();
 

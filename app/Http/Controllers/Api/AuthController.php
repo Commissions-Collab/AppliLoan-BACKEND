@@ -29,6 +29,7 @@ class AuthController extends Controller
                 'password' => Hash::make($data['password']),
                 'role' => $data['role'],
                 'is_verified' => false,
+                'is_member' => false,
             ]);
 
 

@@ -25,13 +25,11 @@ class Member extends Model
         'civil_status',
         'religion',
         'tin_number',
-        'is_member',
         'status',
         'employer',
         'position',
         'monthly_income',
         'other_income',
-        'dependents',
         'share_capital',
         'fixed_deposit',
         'seminar_date',
@@ -40,7 +38,13 @@ class Member extends Model
         'birth_cert',
         'certificate_of_employment',
         'applicant_photo',
-        'valid_id',
+        'valid_id_front',
+        'valid_id_back',
+        'number_of_children',
+        'spouse_name',
+        'spouse_employer',
+        'spouse_monthly_income',
+        'spouse_birth_day',
     ];
 
     protected $casts = [
