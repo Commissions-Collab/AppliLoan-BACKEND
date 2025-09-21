@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Clerk\LoanApplicationsController;
 use App\Http\Controllers\Clerk\LoanPaymentsController;
 use App\Http\Controllers\Clerk\MemberManagementController;
+use App\Http\Controllers\Member\LoanApplicationController;
 use App\Http\Controllers\Member\MembershipApplyController;
 
 Route::get('/', function () {
@@ -118,6 +119,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/past-application', [AppliancesController::class, 'passApplication']);
 
         Route::post('/membership-apply', [MembershipApplyController::class, 'applyForMembership']);
+
+        Route::post('/loan-application', [LoanApplicationController::class, 'storeLoanApplication']);
         
     });
 });

@@ -25,14 +25,14 @@ return new class extends Migration
             //personal details
             $table->string('phone');
             $table->integer('age')->nullable();
-            $table->string('adrress');
+            $table->string('address');
             $table->string('tin_number')->nullable();
             $table->string('employer')->nullable();
             $table->string('position')->nullable();
             $table->decimal('monthly_income', 12, 2)->nullable();
             $table->string('other_income_source')->nullable();
             $table->string('monthly_disposable_income')->nullable();
-            $table->string('berthmonth')->nullable();
+            $table->string('birth_month')->nullable();
             $table->string('place_of_birth')->nullable();
             $table->string('no_of_dependents')->nullable();
 
