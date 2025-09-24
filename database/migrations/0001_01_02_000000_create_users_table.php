@@ -19,6 +19,7 @@ return new class extends Migration
             $table->enum('role', ['admin', 'loan_clerk', 'member']);
             $table->integer('otp')->nullable();
             $table->boolean('is_verified')->default(0);
+            $table->boolean('is_member')->default(0);
             $table->rememberToken();
             $table->timestamps();
         });

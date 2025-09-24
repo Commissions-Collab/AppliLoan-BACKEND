@@ -33,19 +33,25 @@ class MemberFactory extends Factory
     'position' => $this->faker->jobTitle(),
     'monthly_income' => $this->faker->randomFloat(2, 5000, 50000),
     'other_income' => $this->faker->word(),
-    'dependents' => $this->faker->numberBetween(0, 5),
     'share_capital' => 20.00,
     'fixed_deposit' => $this->faker->randomFloat(2, 0, 10000),
     'seminar_date' => $this->faker->date('Y-m-d'),
     'venue' => $this->faker->company() . ' Hall',
     'status' => $this->faker->randomElement(['pending', 'approved', 'rejected']),
+
+    'spouse_name' => $this->faker->name(),
+    'spouse_employer' => $this->faker->company(),
+    'spouse_monthly_income' => $this->faker->randomFloat(2, 5000, 50000),
+    'spouse_birth_day' => $this->faker->date('Y-m-d', '-18 years'),
+    'number_of_children' => $this->faker->numberBetween(0, 5),
     
     // File fields (stored as fake paths for testing)
     'brgy_clearance' => $this->faker->optional()->filePath(),
     'birth_cert' => $this->faker->optional()->filePath(),
     'certificate_of_employment' => $this->faker->optional()->filePath(),
     'applicant_photo' => $this->faker->optional()->imageUrl(),
-    'valid_id' => $this->faker->optional()->filePath(),
+    'valid_id_front' => $this->faker->optional()->filePath(),
+    'valid_id_back' => $this->faker->optional()->filePath(),
     ];
     }
 }

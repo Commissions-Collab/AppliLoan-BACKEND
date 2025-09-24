@@ -13,27 +13,51 @@ class LoanApplication extends Model
     use HasFactory;
 
     protected $fillable = [
-        'member_id',
+        'user_id',
         'loan_type_id',
         'product_id',
+        'user_name',
         'applied_amount',
         'term_months',
+        'phone',
+        'age',
+        'address',
+        'tin_number',
+        'employer',
+        'position',
+        'monthly_income',
+        'other_income_source',
+        'monthly_disposable_income',
+        'birth_month',
+        'place_of_birth',
+        'no_of_dependents',
+        'education_expense',
+        'food_expense',
+        'house_expense',
+        'transportation_expense',
+        'date_granted',
+        'monthly_installment',
+        'SMPC_regular_loan',
+        'SMPC_petty_cash_loan',
+        'total_amortization',
+        'applicant_photo',
+        'certificate_of_employment',
+        'bragy_certificate',
+        'valid_id_front',
+        'valid_id_back',
+        'birth_certificate',
+        'preferred_meeting_date',
+        'preferred_meeting_time',
         'application_date',
         'status',
         'processed_by',
-        'purpose',
-        'rejection_reason'
-    ];
-
-    protected $casts = [
-        'applied_amount' => 'decimal:2',
-        'application_date' => 'date',
+        'rejection_reason',
     ];
 
     // Relationships
-    public function member(): BelongsTo
+    public function user(): BelongsTo
     {
-        return $this->belongsTo(Member::class, 'member_id');
+        return $this->belongsTo(User::class, 'user_id');
     }
 
     public function loanType(): BelongsTo

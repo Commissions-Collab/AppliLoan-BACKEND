@@ -138,7 +138,6 @@ class DatabaseSeeder extends Seeder
                 'position' => fake()->jobTitle(),
                 'monthly_income' => $testMemberData['monthly_income'],
                 'other_income' => fake()->word(),
-                'dependents' => fake()->numberBetween(1, 3),
                 'share_capital' => 20.00,
                 'fixed_deposit' => fake()->randomFloat(2, 0, 10000),
                 'seminar_date' => now()->format('Y-m-d'),
@@ -148,7 +147,13 @@ class DatabaseSeeder extends Seeder
                 'birth_cert' => null,
                 'certificate_of_employment' => null,
                 'applicant_photo' => null,
-                'valid_id' => null,
+                'valid_id_back' => null,
+                'valid_id_front' => null,
+                'number_of_children' => fake()->numberBetween(0, 5),
+                'spouse_name' => fake()->name(),
+                'spouse_employer' => fake()->company(),
+                'spouse_monthly_income' => fake()->randomFloat(2, 0, 50000),
+                'spouse_birth_day' => fake()->dateTimeBetween('-40 years', '-20 years')->format('Y-m-d'),
             ]);
 
             // Create member account
@@ -171,72 +176,113 @@ class DatabaseSeeder extends Seeder
                 MemberAccount::factory()->create(['member_id' => $member->id]);
             });
 
-        // Create sample loan applications and loans
-        $applianceLoanType = LoanType::where('type_name', 'Appliance Loan')->first();
-        $members = Member::all();
-        $products = Product::take(10)->get();
+     // Create sample loan applications and loans
+$applianceLoanType = LoanType::where('type_name', 'Appliance Loan')->first();
+$users = User::take(20)->get(); // instead of Member
+$products = Product::take(10)->get();
 
-        foreach ($members->take(15) as $member) {
-            // Create 1-3 loan applications per member
-            $applicationCount = rand(1, 3);
+foreach ($users->take(15) as $user) {
+    // Create 1-3 loan applications per user
+    $applicationCount = rand(1, 3);
 
-            for ($i = 0; $i < $applicationCount; $i++) {
-                $product = $products->random();
-                $appliedAmount = min($product->price, rand(10000, 80000));
+    for ($i = 0; $i < $applicationCount; $i++) {
+        $product = $products->random();
+        $appliedAmount = min($product->price, rand(10000, 80000));
 
-                $application = LoanApplication::create([
-                    'member_id' => $member->id,
-                    'loan_type_id' => $applianceLoanType->id,
-                    'product_id' => $product->id,
-                    'applied_amount' => $appliedAmount,
-                    'term_months' => [12, 18, 24][array_rand([12, 18, 24])],
-                    'application_date' => fake()->dateTimeBetween('-1 year', 'now'),
-                    'status' => ['pending', 'approved', 'rejected'][array_rand(['pending', 'approved', 'rejected'])],
-                    'processed_by' => [$admin->id, $clerk->id][array_rand([$admin->id, $clerk->id])],
-                    'purpose' => 'Purchase of ' . $product->name,
-                ]);
+        $application = LoanApplication::create([
+            'user_id' => $user->id,
+            'loan_type_id' => $applianceLoanType->id,
+            'product_id' => $product->id,
+            'user_name' => $user->name,
+            'applied_amount' => $appliedAmount,
+            'term_months' => [12, 18, 24][array_rand([12, 18, 24])],
 
-                // Create loan if approved
-                if ($application->status === 'approved') {
-                    $interestRate = 12.00;
-                    $monthlyPayment = ($appliedAmount * (1 + ($interestRate / 100))) / $application->term_months;
+            // Personal details (required in migration)
+            'phone' => fake()->phoneNumber(),
+            'age' => fake()->numberBetween(18, 65),
+            'address' => fake()->address(), // matches migration column
+            'tin_number' => fake()->numerify('#########'),
+            'employer' => fake()->company(),
+            'position' => fake()->jobTitle(),
+            'monthly_income' => fake()->randomFloat(2, 10000, 50000),
+            'other_income_source' => fake()->optional()->word(),
+            'monthly_disposable_income' => fake()->numberBetween(5000, 20000),
+            'birth_month'=> fake()->monthName(), // matches migration column
+            'place_of_birth' => fake()->city(),
+            'no_of_dependents' => fake()->numberBetween(0, 5),
 
-                    $approvalDate = fake()->dateTimeBetween($application->application_date, 'now');
-                    $releaseDate = fake()->dateTimeBetween($approvalDate, $approvalDate->format('Y-m-d') . ' +15 days');
-                    $maturityDate = (clone $releaseDate)->modify("+{$application->term_months} months");
+            // Estimated expenses
+            'education_expense' => fake()->randomFloat(2, 1000, 5000),
+            'food_expense' => fake()->randomFloat(2, 2000, 10000),
+            'house_expense' => fake()->randomFloat(2, 3000, 15000),
+            'transportation_expense' => fake()->randomFloat(2, 1000, 7000),
 
-                    $loan = Loan::create([
-                        'loan_application_id' => $application->id,
-                        'loan_number' => 'LN-' . date('Y') . '-' . str_pad(fake()->unique()->numberBetween(1, 9999), 4, '0', STR_PAD_LEFT),
-                        'principal_amount' => $appliedAmount,
-                        'monthly_payment' => round($monthlyPayment, 2),
-                        'interest_rate' => $interestRate,
-                        'term_months' => $application->term_months,
-                        'application_date' => $application->application_date,
-                        'approval_date' => $approvalDate,
-                        'release_date' => $releaseDate,
-                        'maturity_date' => $maturityDate,
-                        'approved_by' => $application->processed_by,
-                        'purpose' => $application->purpose,
-                        'status' => ['active', 'closed'][array_rand(['active', 'closed'])],
-                    ]);
+            // Amortization details
+            'date_granted' => fake()->date(),
+            'monthly_installment' => fake()->randomFloat(2, 1000, 20000),
+            'SMPC_regular_loan' => fake()->randomFloat(2, 5000, 50000),
+            'SMPC_petty_cash_loan' => fake()->randomFloat(2, 1000, 10000),
+            'total_amortization' => fake()->randomFloat(2, 5000, 60000),
 
-                    // Create payment schedules
-                    $this->createLoanSchedules($loan);
+            // Required documents
+            'applicant_photo' => fake()->imageUrl(200, 200, 'people', true, 'Applicant'),
+            'certificate_of_employment' => fake()->filePath(),
+            'bragy_certificate' => fake()->filePath(),
+            'valid_id_front' => fake()->filePath(),
+            'valid_id_back' => fake()->filePath(),
+            'birth_certificate' => fake()->filePath(),
 
-                    // Create some payments
-                    if ($loan->status === 'active' || rand(0, 1)) {
-                        $this->createLoanPayments($loan, $admin, $clerk);
-                    }
-                }
+            // Scheduling
+            'preferred_meeting_date' => fake()->date(),
+            'preferred_meeting_time' => fake()->time(),
+
+            'application_date' => fake()->dateTimeBetween('-1 year', 'now'),
+            'status' => ['pending', 'approved', 'rejected'][array_rand(['pending', 'approved', 'rejected'])],
+            'processed_by' => [$admin->id, $clerk->id][array_rand([$admin->id, $clerk->id])],
+            'rejection_reason' => fake()->optional()->sentence(),
+        ]);
+
+        // Create loan if approved
+        if ($application->status === 'approved') {
+            $interestRate = 12.00;
+            $monthlyPayment = ($appliedAmount * (1 + ($interestRate / 100))) / $application->term_months;
+
+            $approvalDate = fake()->dateTimeBetween($application->application_date, 'now');
+            $releaseDate = fake()->dateTimeBetween($approvalDate, $approvalDate->format('Y-m-d') . ' +15 days');
+            $maturityDate = (clone $releaseDate)->modify("+{$application->term_months} months");
+
+            $loan = Loan::create([
+                'loan_application_id' => $application->id,
+                'loan_number' => 'LN-' . date('Y') . '-' . str_pad(fake()->unique()->numberBetween(1, 9999), 4, '0', STR_PAD_LEFT),
+                'principal_amount' => $appliedAmount,
+                'monthly_payment' => round($monthlyPayment, 2),
+                'interest_rate' => $interestRate,
+                'term_months' => $application->term_months,
+                'application_date' => $application->application_date,
+                'approval_date' => $approvalDate,
+                'release_date' => $releaseDate,
+                'maturity_date' => $maturityDate,
+                'approved_by' => $application->processed_by,
+                'status' => ['active', 'closed'][array_rand(['active', 'closed'])],
+            ]);
+
+            // Create payment schedules
+            $this->createLoanSchedules($loan);
+
+            // Create some payments
+            if ($loan->status === 'active' || rand(0, 1)) {
+                $this->createLoanPayments($loan, $admin, $clerk);
             }
         }
+    }
+}
 
         echo "Database seeded successfully!\n";
         echo "Admin: admin@coop.com / password\n";
         echo "Clerk: clerk@coop.com / password\n";
         echo "Members: mark@member.com, jane@member.com, john@member.com / password\n";
     }
+
 
     private function createLoanSchedules(Loan $loan)
     {
