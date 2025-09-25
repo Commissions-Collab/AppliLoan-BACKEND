@@ -12,6 +12,17 @@ class MembershipApplyController extends Controller
 
     public function applyForMembership(Request $request)
     {
+        // Prevent duplicate applications: if user already has a pending or approved membership request
+        $existing = ModelRequest::where('user_id', Auth::id())
+            ->whereIn('status', ['pending','approved'])
+            ->first();
+        if ($existing) {
+            return response()->json([
+                'message' => 'You already have a membership application (status: ' . $existing->status . ').',
+                'data' => $existing,
+            ], 409);
+        }
+
         $validated = $request->validate([
             // requester/assignee and member number are filled in by the server
             'full_name' => 'required|string|max:255',

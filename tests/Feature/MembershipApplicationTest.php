@@ -124,4 +124,24 @@ class MembershipApplicationTest extends TestCase
         $applicant->refresh();
         $this->assertEquals(1, $applicant->is_member);
     }
+
+    public function test_user_cannot_create_second_pending_application(): void
+    {
+        $user = User::factory()->create(['role' => 'member', 'is_member' => 0]);
+        $this->actingAs($user);
+
+        $payload = [
+            'full_name' => 'Single Attempt',
+            'phone_number' => '09999999999',
+            'seminar_date' => '2025-09-30',
+            'venue' => 'Main',
+        ];
+
+        $first = $this->postJson('/api/member/membership-apply', $payload);
+        $first->assertCreated();
+
+        $second = $this->postJson('/api/member/membership-apply', $payload);
+        $second->assertStatus(409)
+            ->assertJsonPath('message', fn($m) => str_contains($m, 'already have a membership application'));
+    }
 }
