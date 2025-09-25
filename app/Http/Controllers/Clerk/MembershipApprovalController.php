@@ -86,7 +86,6 @@ class MembershipApprovalController extends Controller
         $userRequest->save();
 
         if ($request->status === 'approved') {
-            // Check if already a member (prevent duplicate entry)
             $existingMember = Member::where('member_number', $userRequest->member_number)->first();
 
             if (!$existingMember) {
@@ -102,7 +101,7 @@ class MembershipApprovalController extends Controller
                     'age' => $userRequest->age,
                     'civil_status' => $userRequest->civil_status,
                     'religion' => $userRequest->religion,
-                    'dependents' => $userRequest->dependents,
+                    'number_of_children' => $userRequest->number_of_children,
                     'employer' => $userRequest->employer,
                     'position' => $userRequest->position,
                     'monthly_income' => $userRequest->monthly_income,
@@ -116,17 +115,34 @@ class MembershipApprovalController extends Controller
                     'birth_cert' => $userRequest->birth_cert,
                     'certificate_of_employment' => $userRequest->certificate_of_employment,
                     'applicant_photo' => $userRequest->applicant_photo,
-                    'valid_id' => $userRequest->valid_id,
+                    'valid_id_front' => $userRequest->valid_id_front,
+                    'valid_id_back' => $userRequest->valid_id_back,
+                    'spouse_name' => $userRequest->spouse_name,
+                    'spouse_employer' => $userRequest->spouse_employer,
+                    'spouse_monthly_income' => $userRequest->spouse_monthly_income,
+                    'spouse_birth_day' => $userRequest->spouse_birth_day,
                 ]);
+            }
+
+            // Mark user as member
+            $user = User::find($userRequest->user_id);
+            if ($user && !$user->is_member) {
+                $user->is_member = 1;
+                $user->save();
             }
         }
 
             DB::commit();
 
-            return response()->json([
+            $response = [
                 'message' => 'Status updated successfully.',
                 'data' => $userRequest,
-            ]);
+            ];
+            if ($request->status === 'approved') {
+                $response['user'] = isset($user) ? $user->only(['id','email','is_member']) : null;
+                $response['member'] = $user?->member;
+            }
+            return response()->json($response);
 
         } catch (\Exception $e) {
             DB::rollBack();

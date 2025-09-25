@@ -22,14 +22,8 @@ class MembershipApplyController extends Controller
             'age' => 'nullable|integer',
             'civil_status' => 'nullable|in:single,married,widowed,separated',
             'religion' => 'nullable|string|max:100',
-<<<<<<< HEAD
             'tin_number' => 'nullable|string|max:50',
-=======
-            'tin_number' => 'nullable|integer',
-            'status' => 'nullable|in:pending,approved,rejected',
-
             // employment details
->>>>>>> ebe1076e2142bbcdbbf992ed27ba25c30760463b
             'employer' => 'nullable|string|max:255',
             'position' => 'nullable|string|max:100',
             'monthly_income' => 'nullable|numeric',

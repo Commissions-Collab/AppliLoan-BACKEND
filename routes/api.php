@@ -17,6 +17,7 @@ use App\Http\Controllers\Clerk\LoanPaymentsController;
 use App\Http\Controllers\Clerk\MemberManagementController;
 use App\Http\Controllers\Member\LoanApplicationController;
 use App\Http\Controllers\Member\MembershipApplyController;
+use App\Http\Controllers\Member\MemberProfileController;
 
 Route::get('/', function () {
     return 'API IS WORKING';
@@ -109,6 +110,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/loan-monitoring/{loanId}', [LoanMonitoringController::class, 'show']);
         Route::get('/appliances', [AppliancesController::class, 'index']);
         Route::get('/past-application', [AppliancesController::class, 'passApplication']);
+    Route::get('/profile', [MemberProfileController::class, 'show']);
 
         Route::post('/membership-apply', [MembershipApplyController::class, 'applyForMembership']);
 
