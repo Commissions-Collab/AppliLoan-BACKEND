@@ -14,18 +14,16 @@ class LoanApplicationsController extends Controller
     // Display all loan applications with member and product details
     public function displayLoanApplication()
     {
-        $displayLoanApplication = LoanApplication::select('application_date', 'applied_amount','status','term_months','member_id','product_id',"loan_type_id")
-        ->with(['member:id,full_name,user_id','product:id,name','loanType:id,interest_rate'])
-        ->with(['member.user:id,email']) 
-        ->get();
+        $displayLoanApplication = LoanApplication::select('application_date', 'applied_amount','status','term_months','product_id',"loan_type_id")
+        ->with(['product:id,name','loanType:id,interest_rate'])
+        ->get();            
         
         return response()->json($displayLoanApplication);
     }  
 
     public function showLoanApplication($id)
     {
-        $loanApplication = LoanApplication::with(['member', 'product', 'loanType', 'processedBy'])
-        ->with(['member.user'])
+        $loanApplication = LoanApplication::with(['product', 'loanType', 'processedBy'])
         ->find($id);
 
         if (!$loanApplication) {
