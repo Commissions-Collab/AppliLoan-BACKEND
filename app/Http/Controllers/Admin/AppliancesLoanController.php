@@ -176,6 +176,24 @@ class AppliancesLoanController extends Controller
             'application_date' => $application->application_date,
             'user_name' => $application->user_name,
             'is_member' => $isMember,
+            
+            // Personal information from application (for non-members)
+            'phone' => $application->phone,
+            'age' => $application->age,
+            'address' => $application->address,
+            'tin_number' => $application->tin_number,
+            'employer' => $application->employer,
+            'position' => $application->position,
+            'monthly_income' => $application->monthly_income,
+            'other_income_source' => $application->other_income_source,
+            'monthly_disposable_income' => $application->monthly_disposable_income,
+            'birth_month' => $application->birth_month,
+            'place_of_birth' => $application->place_of_birth,
+            'no_of_dependents' => $application->no_of_dependents,
+            'SMPC_regular_loan' => $application->SMPC_regular_loan,
+            'SMPC_petty_cash_loan' => $application->SMPC_petty_cash_loan,
+            'total_amortization' => $application->total_amortization,
+            
             'member' => $member ? [
                 'full_name' => $member->full_name,
                 'address' => $member->address,
@@ -189,7 +207,7 @@ class AppliancesLoanController extends Controller
                 'position' => $member->position,
                 'monthly_income' => $member->monthly_income,
                 'other_income' => $member->other_income,
-                'monthly_disposable_income' => $member->monthly_income - ($member->other_income ?? 0),
+                'monthly_disposable_income' => $this->calculateDisposableIncome($member),
             ] : null,
             'user' => optional($application->user) ? [
                 'id' => optional($application->user)->id,
@@ -244,5 +262,28 @@ class AppliancesLoanController extends Controller
         $interest = $principal * $rate;
 
         return ($principal + $interest) / $months;
+    }
+
+    private function calculateDisposableIncome($member)
+    {
+        if (!$member) {
+            return 0;
+        }
+
+        $monthlyIncome = is_numeric($member->monthly_income) ? (float)$member->monthly_income : 0;
+        $otherIncome = 0;
+
+        // Handle other_income which might be string or numeric
+        if ($member->other_income !== null) {
+            if (is_numeric($member->other_income)) {
+                $otherIncome = (float)$member->other_income;
+            } else {
+                // Try to extract numeric value from string
+                $cleanValue = preg_replace('/[^\d.]/', '', $member->other_income);
+                $otherIncome = is_numeric($cleanValue) ? (float)$cleanValue : 0;
+            }
+        }
+
+        return $monthlyIncome - $otherIncome;
     }
 }

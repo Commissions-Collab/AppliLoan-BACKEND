@@ -53,6 +53,7 @@ class Member extends Model
         'monthly_income' => 'decimal:2',
         'share_capital' => 'decimal:2',
         'fixed_deposit' => 'decimal:2',
+        'spouse_monthly_income' => 'decimal:2',
     ];
 
     // Relationships
