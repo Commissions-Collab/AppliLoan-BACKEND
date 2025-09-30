@@ -10,11 +10,12 @@ class LoanPaymentsController extends Controller
 {
     public function displayPayMents()
     {
-        $displayPayments = LoanPayment::select('id', 'loan_id','remaining_balance','payment_date')
-            ->with('loan:id,loan_application_id,term_months')
-            ->with('loan.application:id,member_id,product_id,applied_amount')
-            ->with('loan.application.member:id,full_name')
-            ->with('loan.application.product:id,name')
+        $displayPayments = LoanPayment::select('id', 'loan_id','remaining_balance','payment_date','amount_paid')
+            ->with(['loan:id,loan_application_id,loan_number,term_months,principal_amount,monthly_payment'])
+            ->with(['loan.application:id,user_id,product_id,applied_amount'])
+            ->with(['loan.application.user:id,email'])
+            ->with(['loan.application.product:id,name'])
+            ->latest()
             ->get();
         return response()->json($displayPayments);
     }

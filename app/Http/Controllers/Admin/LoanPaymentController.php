@@ -11,10 +11,10 @@ class LoanPaymentController extends Controller
     public function getLoanPayment()
     {
         $payments = LoanPayment::with([
-            'loan:id,loan_application_id,loan_number',
-            'loan.application:id,member_id,product_id',
+            'loan:id,loan_application_id,loan_number,principal_amount,monthly_payment',
+            'loan.application:id,user_id,product_id,applied_amount',
+            'loan.application.user:id,email',
             'loan.application.product:id,name',
-            'loan.application.member:id,full_name',
             'receivedBy:id,email',
             'schedule:id,status'
         ])
