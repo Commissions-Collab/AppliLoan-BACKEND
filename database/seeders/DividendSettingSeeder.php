@@ -46,7 +46,17 @@ class DividendSettingSeeder extends Seeder
 
         // --- Create Additional Random Data ---
 
-        // Create 5 more random settings for variety
-        DividendSetting::factory()->count(5)->create();
+        // Create 5 more specific settings for variety (past years with specific quarters to avoid conflicts)
+        $pastSettings = [
+            ['year' => 2022, 'quarter' => 1],
+            ['year' => 2022, 'quarter' => 2],
+            ['year' => 2023, 'quarter' => 1],
+            ['year' => 2023, 'quarter' => null], // Annual
+            ['year' => 2021, 'quarter' => 4],
+        ];
+
+        foreach ($pastSettings as $setting) {
+            DividendSetting::factory()->create($setting);
+        }
     }
 }

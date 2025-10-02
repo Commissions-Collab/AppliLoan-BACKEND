@@ -46,7 +46,14 @@ class Loan extends Model
 
     public function member(): HasOneThrough
     {
-        return $this->hasOneThrough(Member::class, LoanApplication::class, 'id', 'id', 'loan_application_id', 'member_id');
+        return $this->hasOneThrough(
+            Member::class, 
+            LoanApplication::class, 
+            'id',           // Foreign key on LoanApplication table (loan_application_id)
+            'user_id',      // Foreign key on Member table  
+            'loan_application_id', // Local key on Loan table
+            'user_id'       // Local key on LoanApplication table
+        );
     }
 
     public function approvedBy(): BelongsTo

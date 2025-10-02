@@ -90,9 +90,9 @@ public function searchLoanApplications(Request $request)
 {
    $search = $request->input('search'); 
 
-    $loanApplications = LoanApplication::select('id', 'member_id', 'product_id', 'loan_type_id', 'processed_by', 'applied_amount', 'application_date', 'status')
+    $loanApplications = LoanApplication::select('id', 'user_id', 'product_id', 'loan_type_id', 'processed_by', 'applied_amount', 'application_date', 'status')
         ->with([
-            'member:id,full_name',
+            'user.member:id,user_id,full_name',
             'loanType:id,name',
             'product:id,name',
             'processedBy:id,email'
@@ -100,7 +100,7 @@ public function searchLoanApplications(Request $request)
         ->when($search, function ($query) use ($search) {
             $query->where(function ($q) use ($search) {
                 $q->where('status', 'like', "%{$search}%")
-                ->orWhereHas('member', function ($memberQ) use ($search) {
+                ->orWhereHas('user.member', function ($memberQ) use ($search) {
                     $memberQ->where('full_name', 'like', "%{$search}%");
                 })
                 ->orWhereHas('product', function ($productQ) use ($search) {

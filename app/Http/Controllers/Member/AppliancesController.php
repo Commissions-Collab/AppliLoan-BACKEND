@@ -36,7 +36,8 @@ class AppliancesController extends Controller
     public function passApplication(Request $request)
     {
         try {
-            $member = Auth::user()->member;
+            $user = Auth::user();
+            $member = $user->member;
 
             if (!$member) {
                 return response()->json([
@@ -46,7 +47,7 @@ class AppliancesController extends Controller
             }
 
             $query = LoanApplication::with(['product:id,name'])
-                ->where('member_id', $member->id);
+                ->where('user_id', $user->id);
 
             if ($request->filled('status')) {
                 $query->where('status', $request->status);
