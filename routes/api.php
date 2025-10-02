@@ -74,9 +74,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::controller(AppliancesLoanController::class)->group(function () {
             Route::get('/appliances-loan/applications', 'index');
-            Route::get('/appliances-loan/{id}', 'show');
+            Route::get('/appliances-loan/show/{id}', 'show');
             Route::post('/appliances-loan/approved/{id}', 'approvedApplication');
-            Route::patch('/appliances-loan/reject/{id}', 'rejectApplication');
+            Route::post('/appliances-loan/reject/{id}', 'rejectApplication');
         });
 
         Route::get('/loan-payments', [LoanPaymentController::class, 'getLoanPayment']);
@@ -128,7 +128,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/appliances-loan/applications', [\App\Http\Controllers\Admin\AppliancesLoanController::class, 'index']);
         Route::get('/appliances-loan/show/{id}', [\App\Http\Controllers\Admin\AppliancesLoanController::class, 'show']);
         Route::post('/appliances-loan/approved/{id}', [\App\Http\Controllers\Admin\AppliancesLoanController::class, 'approvedApplication']);
-        Route::patch('/appliances-loan/reject/{id}', [\App\Http\Controllers\Admin\AppliancesLoanController::class, 'rejectApplication']);
+        Route::post('/appliances-loan/reject/{id}', [\App\Http\Controllers\Admin\AppliancesLoanController::class, 'rejectApplication']);
 
         // Loan payments (reuse admin controller for consistency)
         Route::get('/appliances-loan/payments', [\App\Http\Controllers\Admin\LoanPaymentController::class, 'getLoanPayment']);

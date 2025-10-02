@@ -59,7 +59,7 @@ class AppliancesLoanController extends Controller
     {
         $user = Auth::user();
 
-        if (!in_array($user->role, ['admin','loan_clerk'])) {
+        if (!in_array($user->role->value, ['admin', 'loan_clerk'])) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -115,12 +115,12 @@ class AppliancesLoanController extends Controller
     public function rejectApplication(string $id, Request $request)
     {
         $request->validate([
-            'rejection_reason' => ['nullable', 'string']
+            'reason' => ['nullable', 'string']
         ]);
 
         $user = Auth::user();
 
-        if (!in_array($user->role, ['admin','loan_clerk'])) {
+        if (!in_array($user->role->value, ['admin', 'loan_clerk'])) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -140,7 +140,7 @@ class AppliancesLoanController extends Controller
 
             $application->update([
                 'status' => 'rejected',
-                'rejection_reason' => $request->rejection_reason
+                'rejection_reason' => $request->reason
             ]);
 
             DB::commit();
