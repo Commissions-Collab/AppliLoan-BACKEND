@@ -12,6 +12,7 @@ use App\Http\Controllers\Member\LoanMonitoringController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Clerk\InventoryScannerController;
 use App\Http\Controllers\Clerk\LoanApplicationsController;
 use App\Http\Controllers\Clerk\LoanPaymentsController;
 use App\Http\Controllers\Clerk\MemberManagementController;
@@ -84,10 +85,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::apiResource('/clerk-management', ManageClerkController::class);
     });
 
-    Route::middleware('role:loan_clerk')->prefix('/loan-clerk')->group(function () {
+    Route::middleware('role:loan_clerk')->prefix('/loan_clerk')->group(function () {
         Route::get('/dashboard', function () {
             return response()->json(['message' => 'Loan Clerk Dashboard']);
         });
+
 
         // Membership requests management for loan clerks
         Route::get('/requests/pending', [MembershipApprovalController::class, 'getPendingRequests']);
@@ -101,6 +103,25 @@ Route::middleware('auth:sanctum')->group(function () {
         // Members listing for loan clerks
         Route::get('/members', function () {
             return \App\Models\Member::orderByDesc('created_at')->get();
+        });
+
+
+
+        Route::controller(InventoryScannerController::class)->prefix('inventory')->group(function () {
+            // Categories
+            Route::post('/categories', 'storeCategory');
+            Route::put('/categories/{id}', 'updateCategory');
+            Route::delete('/categories/{id}', 'deleteCategory');
+            Route::get('/categories', 'indexCategory');
+
+            // Products
+            Route::post('/products', 'storeProduct');
+            Route::put('/products/{id}', 'updateProduct');
+            Route::delete('/products/{id}', 'destroyProduct');
+            Route::get('/products', 'indexProduct');
+            Route::get('/products/barcode/{barcode}', 'showByBarcode');  // For scanning
+            Route::patch('/products/{id}/stock', 'updateStock');  // Quick stock update via scan
+            Route::get('/products/filter', 'filterProducts');
         });
 
         // Appliances loan applications (clerk view uses same controller formatting)
@@ -119,11 +140,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/loan-monitoring/{loanId}', [LoanMonitoringController::class, 'show']);
         Route::get('/appliances', [AppliancesController::class, 'index']);
         Route::get('/past-application', [AppliancesController::class, 'passApplication']);
-    Route::get('/profile', [MemberProfileController::class, 'show']);
+        Route::get('/profile', [MemberProfileController::class, 'show']);
 
         Route::post('/membership-apply', [MembershipApplyController::class, 'applyForMembership']);
 
         Route::post('/loan-application', [LoanApplicationController::class, 'storeLoanApplication']);
-        
     });
 });
