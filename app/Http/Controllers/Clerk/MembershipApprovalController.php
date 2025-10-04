@@ -19,7 +19,30 @@ class MembershipApprovalController extends Controller
             return response()->json(['message' => 'Request not found'], 404);
         }
 
-        return response()->json($request);
+        // Add document URLs
+        $requestData = $request->toArray();
+        $requestData['documents'] = [
+            'brgy_clearance' => $request->brgy_clearance 
+                ? asset('storage/' . $request->brgy_clearance) 
+                : null,
+            'birth_cert' => $request->birth_cert 
+                ? asset('storage/' . $request->birth_cert) 
+                : null,
+            'certificate_of_employment' => $request->certificate_of_employment 
+                ? asset('storage/' . $request->certificate_of_employment) 
+                : null,
+            'applicant_photo' => $request->applicant_photo 
+                ? asset('storage/' . $request->applicant_photo) 
+                : null,
+            'valid_id_front' => $request->valid_id_front 
+                ? asset('storage/' . $request->valid_id_front) 
+                : null,
+            'valid_id_back' => $request->valid_id_back 
+                ? asset('storage/' . $request->valid_id_back) 
+                : null,
+        ];
+
+        return response()->json($requestData);
     }
 
     public function getPendingRequests()
@@ -157,6 +180,30 @@ class MembershipApprovalController extends Controller
     public function show($id)
     {
         $requestItem = ModelRequest::findOrFail($id);
-        return response()->json($requestItem);
+        
+        // Add document URLs
+        $requestData = $requestItem->toArray();
+        $requestData['documents'] = [
+            'brgy_clearance' => $requestItem->brgy_clearance 
+                ? asset('storage/' . $requestItem->brgy_clearance) 
+                : null,
+            'birth_cert' => $requestItem->birth_cert 
+                ? asset('storage/' . $requestItem->birth_cert) 
+                : null,
+            'certificate_of_employment' => $requestItem->certificate_of_employment 
+                ? asset('storage/' . $requestItem->certificate_of_employment) 
+                : null,
+            'applicant_photo' => $requestItem->applicant_photo 
+                ? asset('storage/' . $requestItem->applicant_photo) 
+                : null,
+            'valid_id_front' => $requestItem->valid_id_front 
+                ? asset('storage/' . $requestItem->valid_id_front) 
+                : null,
+            'valid_id_back' => $requestItem->valid_id_back 
+                ? asset('storage/' . $requestItem->valid_id_back) 
+                : null,
+        ];
+
+        return response()->json($requestData);
     }
 } 

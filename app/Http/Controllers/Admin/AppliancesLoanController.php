@@ -194,6 +194,28 @@ class AppliancesLoanController extends Controller
             'SMPC_petty_cash_loan' => $application->SMPC_petty_cash_loan,
             'total_amortization' => $application->total_amortization,
             
+            // Document URLs
+            'documents' => [
+                'applicant_photo' => $application->applicant_photo 
+                    ? asset('storage/' . $application->applicant_photo) 
+                    : null,
+                'certificate_of_employment' => $application->certificate_of_employment 
+                    ? asset('storage/' . $application->certificate_of_employment) 
+                    : null,
+                'bragy_certificate' => $application->bragy_certificate 
+                    ? asset('storage/' . $application->bragy_certificate) 
+                    : null,
+                'valid_id_front' => $application->valid_id_front 
+                    ? asset('storage/' . $application->valid_id_front) 
+                    : null,
+                'valid_id_back' => $application->valid_id_back 
+                    ? asset('storage/' . $application->valid_id_back) 
+                    : null,
+                'birth_certificate' => $application->birth_certificate 
+                    ? asset('storage/' . $application->birth_certificate) 
+                    : null,
+            ],
+            
             'member' => $member ? [
                 'full_name' => $member->full_name,
                 'address' => $member->address,
