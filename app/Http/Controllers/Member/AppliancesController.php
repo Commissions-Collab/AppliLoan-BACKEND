@@ -20,6 +20,12 @@ class AppliancesController extends Controller
                 ->latest()
                 ->paginate(25);
 
+            // Transform products to include image URLs
+            $products->getCollection()->transform(function ($product) {
+                $product->image_url = $product->image ? asset('storage/' . $product->image) : null;
+                return $product;
+            });
+
             return response()->json([
                 'success' => true,
                 'products' => $products
