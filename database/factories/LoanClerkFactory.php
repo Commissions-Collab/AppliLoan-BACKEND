@@ -17,7 +17,7 @@ class LoanClerkFactory extends Factory
 
         return [
             'user_id'       => $user->id,
-            'clerk_id'      => strtoupper($this->faker->bothify('CLERK-####')),
+            'clerk_id'      => strtoupper($this->faker->unique()->bothify('CLERK-####')),
             'full_name'     => $this->faker->name(),
             'contact_number'=> $this->faker->phoneNumber(),
             'address'       => $this->faker->address(),

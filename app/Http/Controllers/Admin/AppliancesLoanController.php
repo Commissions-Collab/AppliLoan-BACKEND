@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Loan;
 use App\Models\LoanApplication;
+use App\Models\Member;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -14,19 +15,36 @@ class AppliancesLoanController extends Controller
 {
     public function index()
     {
-        $applications = LoanApplication::with('member:id,full_name', 'product:id,name', 'loan:id,loan_application_id,loan_number')
-            ->select(['id', 'member_id', 'product_id', 'status'])
-            ->whereHas('loan')
+        $applications = LoanApplication::with(
+            // include role so we can ensure exclusion
+            'user:id,email,role',
+            'product:id,name',
+            'loan:id,loan_application_id,loan_number,monthly_payment,principal_amount,interest_rate,term_months,application_date,approval_date',
+            'loanType:id,type_name,interest_rate'
+        )
+            ->whereHas('user', function ($q) {
+                $q->whereNotIn('role', ['admin', 'loan_clerk']);
+            })
+            ->select(['id', 'user_id', 'product_id', 'status', 'applied_amount', 'term_months', 'application_date', 'loan_type_id', 'user_name'])
             ->latest()
             ->paginate(25);
 
         $formatted = $applications->getCollection()->map(function ($item) {
+            $isMember = Member::where('user_id', $item->user_id)->exists();
             return [
                 'id' => $item->id,
+                'user_id' => $item->user_id,
                 'loan_number' => optional($item->loan)->loan_number,
-                'member_name' => optional($item->member)->full_name,
+                'user_email' => optional($item->user)->email,
+                'user_name' => $item->user_name,
                 'product_name' => optional($item->product)->name,
-                'status' => $item->status
+                'applied_amount' => $item->applied_amount,
+                'monthly_payment' => optional($item->loan)->monthly_payment,
+                'term_months' => $item->term_months ?? optional($item->loan)->term_months,
+                'interest_rate' => optional($item->loanType)->interest_rate ?? optional($item->loan)->interest_rate,
+                'application_date' => $item->application_date ?? optional($item->loan)->application_date,
+                'status' => $item->status,
+                'is_member' => $isMember,
             ];
         });
 
@@ -41,7 +59,7 @@ class AppliancesLoanController extends Controller
     {
         $user = Auth::user();
 
-        if (!($user->isAdmin() || $user->isLoanClerk())) {
+        if (!in_array($user->role->value, ['admin', 'loan_clerk'])) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -97,12 +115,12 @@ class AppliancesLoanController extends Controller
     public function rejectApplication(string $id, Request $request)
     {
         $request->validate([
-            'rejection_reason' => ['nullable', 'string']
+            'reason' => ['nullable', 'string']
         ]);
 
         $user = Auth::user();
 
-        if (!($user->isAdmin() || $user->isLoanClerk())) {
+        if (!in_array($user->role->value, ['admin', 'loan_clerk'])) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -122,7 +140,7 @@ class AppliancesLoanController extends Controller
 
             $application->update([
                 'status' => 'rejected',
-                'rejection_reason' => $request->rejection_reason
+                'rejection_reason' => $request->reason
             ]);
 
             DB::commit();
@@ -138,7 +156,16 @@ class AppliancesLoanController extends Controller
 
     public function show(string $id)
     {
-        $application = LoanApplication::with(['member', 'loanType', 'product', 'loan'])->findOrFail($id);
+        $application = LoanApplication::with(['user', 'loanType', 'product', 'loan'])->findOrFail($id);
+
+        // Prevent access if application belongs to admin or loan_clerk (should not normally exist after filtering/seeding)
+        if (in_array(optional($application->user)->role, ['admin', 'loan_clerk'])) {
+            return response()->json(['message' => 'Application not found'], 404);
+        }
+
+    // Manually locate member record (avoid nested eager load issues if relation name differs)
+    $member = \App\Models\Member::where('user_id', $application->user_id)->first();
+        $isMember = $member !== null;
 
         return response()->json([
             'id' => $application->id,
@@ -147,27 +174,78 @@ class AppliancesLoanController extends Controller
             'term_months' => $application->term_months,
             'purpose' => $application->purpose,
             'application_date' => $application->application_date,
-
-            'member' => [
-                'id' => $application->member->id,
-                'full_name' => $application->member->full_name,
-                'email' => $application->member->user->email ?? null,
-                'contact' => $application->member->phone_number ?? null,
+            'user_name' => $application->user_name,
+            'is_member' => $isMember,
+            
+            // Personal information from application (for non-members)
+            'phone' => $application->phone,
+            'age' => $application->age,
+            'address' => $application->address,
+            'tin_number' => $application->tin_number,
+            'employer' => $application->employer,
+            'position' => $application->position,
+            'monthly_income' => $application->monthly_income,
+            'other_income_source' => $application->other_income_source,
+            'monthly_disposable_income' => $application->monthly_disposable_income,
+            'birth_month' => $application->birth_month,
+            'place_of_birth' => $application->place_of_birth,
+            'no_of_dependents' => $application->no_of_dependents,
+            'SMPC_regular_loan' => $application->SMPC_regular_loan,
+            'SMPC_petty_cash_loan' => $application->SMPC_petty_cash_loan,
+            'total_amortization' => $application->total_amortization,
+            
+            // Document URLs
+            'documents' => [
+                'applicant_photo' => $application->applicant_photo 
+                    ? asset('storage/' . $application->applicant_photo) 
+                    : null,
+                'certificate_of_employment' => $application->certificate_of_employment 
+                    ? asset('storage/' . $application->certificate_of_employment) 
+                    : null,
+                'bragy_certificate' => $application->bragy_certificate 
+                    ? asset('storage/' . $application->bragy_certificate) 
+                    : null,
+                'valid_id_front' => $application->valid_id_front 
+                    ? asset('storage/' . $application->valid_id_front) 
+                    : null,
+                'valid_id_back' => $application->valid_id_back 
+                    ? asset('storage/' . $application->valid_id_back) 
+                    : null,
+                'birth_certificate' => $application->birth_certificate 
+                    ? asset('storage/' . $application->birth_certificate) 
+                    : null,
             ],
-
-            'product' => [
+            
+            'member' => $member ? [
+                'full_name' => $member->full_name,
+                'address' => $member->address,
+                'tin_number' => $member->tin_number,
+                'phone_number' => $member->phone_number,
+                'date_of_birth' => $member->date_of_birth,
+                'place_of_birth' => $member->place_of_birth,
+                'age' => $member->age,
+                'dependents' => $member->number_of_children,
+                'employer' => $member->employer,
+                'position' => $member->position,
+                'monthly_income' => $member->monthly_income,
+                'other_income' => $member->other_income,
+                'monthly_disposable_income' => $this->calculateDisposableIncome($member),
+            ] : null,
+            'user' => optional($application->user) ? [
+                'id' => optional($application->user)->id,
+                'email' => optional($application->user)->email,
+            ] : null,
+            'product' => $application->product ? [
                 'id' => $application->product->id,
                 'name' => $application->product->name,
-            ],
-
-            'loan_type' => [
+            ] : null,
+            'loan_type' => $application->loanType ? [
                 'id' => $application->loanType->id,
                 'name' => $application->loanType->type_name,
                 'interest_rate' => $application->loanType->interest_rate,
                 'max_term_months' => $application->loanType->max_term_months,
-                'collateral_required' => $application->loanType->collateral_required, // The output of this is 1 or 0 so just change it to true or false in frontend
-            ],
-
+                'collateral_required' => (bool)$application->loanType->collateral_required,
+            ] : null,
             'loan' => $application->loan ? [
                 'id' => $application->loan->id,
                 'loan_number' => $application->loan->loan_number,
@@ -206,5 +284,28 @@ class AppliancesLoanController extends Controller
         $interest = $principal * $rate;
 
         return ($principal + $interest) / $months;
+    }
+
+    private function calculateDisposableIncome($member)
+    {
+        if (!$member) {
+            return 0;
+        }
+
+        $monthlyIncome = is_numeric($member->monthly_income) ? (float)$member->monthly_income : 0;
+        $otherIncome = 0;
+
+        // Handle other_income which might be string or numeric
+        if ($member->other_income !== null) {
+            if (is_numeric($member->other_income)) {
+                $otherIncome = (float)$member->other_income;
+            } else {
+                // Try to extract numeric value from string
+                $cleanValue = preg_replace('/[^\d.]/', '', $member->other_income);
+                $otherIncome = is_numeric($cleanValue) ? (float)$cleanValue : 0;
+            }
+        }
+
+        return $monthlyIncome - $otherIncome;
     }
 }

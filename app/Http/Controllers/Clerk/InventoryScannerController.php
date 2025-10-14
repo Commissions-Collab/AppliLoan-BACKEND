@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Admin;
+namespace App\Http\Controllers\Clerk;
 
 use App\Http\Controllers\Controller;
 use App\Models\Category;
@@ -8,8 +8,9 @@ use App\Models\Product;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
-class InventoryManagementController extends Controller
+class InventoryScannerController extends Controller
 {
+    // Categories
     public function storeCategory(Request $request)
     {
         $validated = $request->validate([
@@ -21,13 +22,13 @@ class InventoryManagementController extends Controller
 
         return response()->json([
             'message' => 'Category created successfully',
-            'category' => $category, // Fixed key
+            'category' => $category,
         ], 201);
     }
 
     public function updateCategory(Request $request, $id)
     {
-        $category = Category::findOrFail($id); // Use findOrFail
+        $category = Category::findOrFail($id);
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
@@ -38,11 +39,11 @@ class InventoryManagementController extends Controller
 
         return response()->json([
             'message' => 'Category updated successfully',
-            'category' => $category, // Fixed key
-        ], 200); // Fixed status
+            'category' => $category,
+        ], 200);
     }
 
-    public function deleteCategory($id) // Removed unused $request
+    public function deleteCategory($id)
     {
         $category = Category::findOrFail($id);
         $category->delete();
@@ -60,11 +61,13 @@ class InventoryManagementController extends Controller
         ], 200);
     }
 
+    // Products
     public function storeProduct(Request $request)
     {
         $validated = $request->validate([
             'category_id' => 'required|exists:categories,id',
             'name' => 'required|string|max:255',
+            'barcode' => 'required|string|unique:products,barcode',
             'description' => 'nullable|string',
             'unit' => 'required|string|max:50',
             'price' => 'required|numeric|min:0',
@@ -93,6 +96,7 @@ class InventoryManagementController extends Controller
         $validated = $request->validate([
             'category_id' => 'required|exists:categories,id',
             'name' => 'required|string|max:255',
+            'barcode' => 'required|string|unique:products,barcode,' . $id,
             'description' => 'nullable|string',
             'unit' => 'required|string|max:50',
             'price' => 'required|numeric|min:0',
@@ -119,7 +123,7 @@ class InventoryManagementController extends Controller
 
     public function destroyProduct($id)
     {
-        $product = Product::findOrFail($id); // Use findOrFail
+        $product = Product::findOrFail($id);
 
         if ($product->image) {
             Storage::disk('public')->delete($product->image);
@@ -133,7 +137,6 @@ class InventoryManagementController extends Controller
     public function indexProduct()
     {
         $products = Product::with('category')->get();
-
         $products->transform(function ($product) {
             $product->image_url = $product->image ? asset('storage/' . $product->image) : null;
             return $product;
@@ -145,43 +148,36 @@ class InventoryManagementController extends Controller
         ], 200);
     }
 
-    public function showByName($name)
+    public function showByBarcode($barcode)
     {
-        $products = Product::with('category')->where('name', 'like', '%' . $name . '%')->get();
-
-        if ($products->isEmpty()) {
-            return response()->json(['message' => 'No products found with that name'], 404);
-        }
-
-        $products->transform(function ($product) {
-            $product->image_url = $product->image ? asset('storage/' . $product->image) : null;
-            return $product;
-        });
+        $product = Product::with('category')->where('barcode', $barcode)->firstOrFail();
+        $product->image_url = $product->image ? asset('storage/' . $product->image) : null;
 
         return response()->json([
-            'message' => 'Products retrieved successfully',
-            'products' => $products
+            'message' => 'Product retrieved successfully',
+            'product' => $product
         ], 200);
     }
 
-    public function productsByCategory($categoryId)
+    public function updateStock($id, Request $request)
     {
-        $category = Category::with('products')->findOrFail($categoryId);
+        $product = Product::findOrFail($id);
+        $validated = $request->validate([
+            'stock_quantity' => 'required|integer|min:0',
+        ]);
 
-        $category->products->transform(function ($product) {
-            $product->image_url = $product->image ? asset('storage/' . $product->image) : null;
-            return $product;
-        });
+        $product->update($validated);
 
         return response()->json([
-            'category' => $category->name, // Fixed to use 'name'
-            'products' => $category->products,
+            'message' => 'Stock updated successfully',
+            'product' => $product
         ], 200);
     }
 
+    // Additional filters (similar to admin)
     public function filterProducts(Request $request)
     {
-        $query = Product::with('category');
+        $query = Product::query();
 
         if ($request->has('category_id')) {
             $query->where('category_id', $request->category_id);
@@ -204,11 +200,6 @@ class InventoryManagementController extends Controller
 
         $products = $query->paginate(10);
 
-        $products->getCollection()->transform(function ($product) {
-            $product->image_url = $product->image ? asset('storage/' . $product->image) : null;
-            return $product;
-        });
-
-        return response()->json($products, 200);
+        return response()->json($products);
     }
 }

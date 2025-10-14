@@ -12,11 +12,13 @@ use App\Http\Controllers\Member\LoanMonitoringController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Clerk\InventoryScannerController;
 use App\Http\Controllers\Clerk\LoanApplicationsController;
 use App\Http\Controllers\Clerk\LoanPaymentsController;
 use App\Http\Controllers\Clerk\MemberManagementController;
 use App\Http\Controllers\Member\LoanApplicationController;
 use App\Http\Controllers\Member\MembershipApplyController;
+use App\Http\Controllers\Member\MemberProfileController;
 
 Route::get('/', function () {
     return 'API IS WORKING';
@@ -53,7 +55,20 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/categories/{id}/products', [InventoryManagementController::class, 'productsByCategory']);
         Route::get('/products/filter', [InventoryManagementController::class, 'filterProducts']);
 
-       
+        Route::post('/requests', [MembershipApprovalController::class, 'store']);
+        Route::get('/requests/pending', [MembershipApprovalController::class, 'getPendingRequests']);
+        Route::get('/requests/approved', [MembershipApprovalController::class, 'getApprovedRequests']);
+        Route::get('/requests/rejected', [MembershipApprovalController::class, 'getRejectedRequests']);
+        Route::get('/requests/all', [MembershipApprovalController::class, 'getAllRequests']);
+        Route::get('/requests/filter', [MembershipApprovalController::class, 'filterAndSortRequests']);
+        Route::get('/requests/{id}', [MembershipApprovalController::class, 'show']);
+
+        // Members listing (approved members)
+        Route::get('/members', function () {
+            return \App\Models\Member::orderByDesc('created_at')->get();
+        });
+
+        Route::put('/requests/{id}/status', [MembershipApprovalController::class, 'updateStatus']);
 
 
 
@@ -61,7 +76,7 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/appliances-loan/applications', 'index');
             Route::get('/appliances-loan/show/{id}', 'show');
             Route::post('/appliances-loan/approved/{id}', 'approvedApplication');
-            Route::patch('/appliances-loan/reject/{id}', 'rejectApplication');
+            Route::post('/appliances-loan/reject/{id}', 'rejectApplication');
         });
 
         Route::get('/loan-payments', [LoanPaymentController::class, 'getLoanPayment']);
@@ -70,45 +85,53 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::apiResource('/clerk-management', ManageClerkController::class);
     });
 
-    Route::middleware('role:loan_clerk')->prefix('/loan-clerk')->group(function () {
+    Route::middleware('role:loan_clerk')->prefix('/loan_clerk')->group(function () {
         Route::get('/dashboard', function () {
             return response()->json(['message' => 'Loan Clerk Dashboard']);
         });
-        //membership requests store  routes
-        Route::post('/requests', [MembershipApprovalController::class, 'store']);
 
-        //membership requests view routes
-       // Route::get('/requests/pending', [MembershipApprovalController::class, 'getPendingRequests']);
-       // Route::get('/requests/approved', [MembershipApprovalController::class, 'getApprovedRequests']);
-       // Route::get('/requests/rejected', [MembershipApprovalController::class, 'getRejectedRequest']);
-       // Route::get('/requests/filter', [MembershipApprovalController::class, 'filterAndSortRequests']);
+
+        // Membership requests management for loan clerks
+        Route::get('/requests/pending', [MembershipApprovalController::class, 'getPendingRequests']);
+        Route::get('/requests/approved', [MembershipApprovalController::class, 'getApprovedRequests']);
+        Route::get('/requests/rejected', [MembershipApprovalController::class, 'getRejectedRequests']);
         Route::get('/requests/all', [MembershipApprovalController::class, 'getAllRequests']);
+        Route::get('/requests/filter', [MembershipApprovalController::class, 'filterAndSortRequests']);
+        Route::get('/requests/{id}', [MembershipApprovalController::class, 'show']);
         Route::put('/requests/{id}/status', [MembershipApprovalController::class, 'updateStatus']);
-        Route::get('/requests/{id}', [MembershipApprovalController::class, 'showMemberRequests']);
 
-        //member management routes
-        Route::get('/members', [MemberManagementController::class, 'displayAllMembers']);
-        Route::get('/members/count', [MemberManagementController::class, 'countTotalMembers']);
-        Route::get('/members/{loanId}/balance', [MemberManagementController::class, 'showMemberBalance']);
-        Route::get('/members/active/count', [MemberManagementController::class, 'countActiveMember']);
-        Route::get('/members/inactive/count', [MemberManagementController::class, 'countInactiveMember']);
-        Route::get('/members/pending/count', [MemberManagementController::class, 'countPendingMember']);
-        Route::get('/members/{id}', [MemberManagementController::class, 'getMemberDetails']);
-        Route::put('/members/{Id}', [MemberManagementController::class, 'updateMember']);
-        Route::delete('/members/{Id}', [MemberManagementController::class, 'deleteMember']);
-        Route::get('/members/search', [MemberManagementController::class, 'searchMember']);
+        // Members listing for loan clerks
+        Route::get('/members', function () {
+            return \App\Models\Member::orderByDesc('created_at')->get();
+        });
 
-        //loan applications routes
-        Route::get('/loan-applications', [LoanApplicationsController::class, 'displayLoanApplication']);
-        Route::get('/loan-applications/{id}', [LoanApplicationsController::class, 'showLoanApplication']);
-        Route::put('/loan-applications/{id}/status', [LoanApplicationsController::class, 'updateLoanApplication']);
-        Route::delete('/loan-applications/{id}', [LoanApplicationsController::class, 'deleteLoanApplication']);
-        Route::get('/loan-applications/search', [LoanApplicationsController::class, 'searchLoanApplications']);
-        Route::get('/loan-applications/status/count', [LoanApplicationsController::class, 'countLoanApplicationsByStatus']);
-        Route::get('/loan-applications/all/count', [LoanApplicationsController::class, 'countTotalLoanApplications']);
 
-        //loan payments routes
-        Route::get('/loan-payments', [LoanPaymentsController::class, 'displayPayMents']);
+
+        Route::controller(InventoryScannerController::class)->prefix('inventory')->group(function () {
+            // Categories
+            Route::post('/categories', 'storeCategory');
+            Route::put('/categories/{id}', 'updateCategory');
+            Route::delete('/categories/{id}', 'deleteCategory');
+            Route::get('/categories', 'indexCategory');
+
+            // Products
+            Route::post('/products', 'storeProduct');
+            Route::put('/products/{id}', 'updateProduct');
+            Route::delete('/products/{id}', 'destroyProduct');
+            Route::get('/products', 'indexProduct');
+            Route::get('/products/barcode/{barcode}', 'showByBarcode');  // For scanning
+            Route::patch('/products/{id}/stock', 'updateStock');  // Quick stock update via scan
+            Route::get('/products/filter', 'filterProducts');
+        });
+
+        // Appliances loan applications (clerk view uses same controller formatting)
+        Route::get('/appliances-loan/applications', [\App\Http\Controllers\Admin\AppliancesLoanController::class, 'index']);
+        Route::get('/appliances-loan/show/{id}', [\App\Http\Controllers\Admin\AppliancesLoanController::class, 'show']);
+        Route::post('/appliances-loan/approved/{id}', [\App\Http\Controllers\Admin\AppliancesLoanController::class, 'approvedApplication']);
+        Route::post('/appliances-loan/reject/{id}', [\App\Http\Controllers\Admin\AppliancesLoanController::class, 'rejectApplication']);
+
+        // Loan payments (reuse admin controller for consistency)
+        Route::get('/appliances-loan/payments', [\App\Http\Controllers\Admin\LoanPaymentController::class, 'getLoanPayment']);
     });
 
     Route::middleware('role:member')->prefix('/member')->group(function () {
@@ -117,10 +140,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/loan-monitoring/{loanId}', [LoanMonitoringController::class, 'show']);
         Route::get('/appliances', [AppliancesController::class, 'index']);
         Route::get('/past-application', [AppliancesController::class, 'passApplication']);
+        Route::get('/profile', [MemberProfileController::class, 'show']);
 
         Route::post('/membership-apply', [MembershipApplyController::class, 'applyForMembership']);
 
         Route::post('/loan-application', [LoanApplicationController::class, 'storeLoanApplication']);
-        
     });
 });

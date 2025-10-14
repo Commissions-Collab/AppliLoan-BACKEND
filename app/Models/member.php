@@ -53,6 +53,7 @@ class Member extends Model
         'monthly_income' => 'decimal:2',
         'share_capital' => 'decimal:2',
         'fixed_deposit' => 'decimal:2',
+        'spouse_monthly_income' => 'decimal:2',
     ];
 
     // Relationships
@@ -68,7 +69,7 @@ class Member extends Model
 
     public function loanApplications(): HasMany
     {
-        return $this->hasMany(LoanApplication::class, 'member_id');
+        return $this->hasMany(LoanApplication::class, 'user_id', 'user_id');
     }
 
     public function loans(): HasManyThrough

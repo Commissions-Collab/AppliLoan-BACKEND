@@ -14,7 +14,7 @@ class RequestFactory extends Factory
     {
        return [
     'request_to' => User::factory(), // Creates a user if none exists
-    'member_number' => strtoupper($this->faker->bothify('MBR-####')),
+    'member_number' => strtoupper($this->faker->unique()->bothify('REQ-####')),
     'user_id' => User::factory(), // Creates a user if none exists
     'full_name' => $this->faker->name(),
     'phone_number' => $this->faker->numerify('09#########'),

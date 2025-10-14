@@ -5,16 +5,26 @@ namespace App\Http\Controllers\Member;
 use App\Http\Controllers\Controller;
 use App\Models\ModelRequest;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class MembershipApplyController extends Controller
 {
 
     public function applyForMembership(Request $request)
     {
+        // Prevent duplicate applications: if user already has a pending or approved membership request
+        $existing = ModelRequest::where('user_id', Auth::id())
+            ->whereIn('status', ['pending','approved'])
+            ->first();
+        if ($existing) {
+            return response()->json([
+                'message' => 'You already have a membership application (status: ' . $existing->status . ').',
+                'data' => $existing,
+            ], 409);
+        }
+
         $validated = $request->validate([
-            'request_to' => 'required|exists:users,id',
-            'user_id' => 'required|exists:users,id',
-            'member_number' => 'required|string|unique:requests,member_number',
+            // requester/assignee and member number are filled in by the server
             'full_name' => 'required|string|max:255',
             'phone_number' => 'required|string|max:20',
             'address' => 'nullable|string|max:255',
@@ -23,9 +33,7 @@ class MembershipApplyController extends Controller
             'age' => 'nullable|integer',
             'civil_status' => 'nullable|in:single,married,widowed,separated',
             'religion' => 'nullable|string|max:100',
-            'tin_number' => 'nullable|integer',
-            'status' => 'nullable|in:pending,approved,rejected',
-
+            'tin_number' => 'nullable|string|max:50',
             // employment details
             'employer' => 'nullable|string|max:255',
             'position' => 'nullable|string|max:100',
@@ -72,9 +80,13 @@ class MembershipApplyController extends Controller
             }
         }
 
-        // Set default status
-        $validated['status'] = $validated['status']??'pending';
-        $validated['request_to'] = '2';
+        // Set server-side fields
+        $validated['status'] = 'pending';
+        $validated['user_id'] = Auth::id();
+        // Assign to a default clerk user id (adjust as needed)
+        $validated['request_to'] = $request->input('request_to', 2);
+        // Generate a unique member number if not provided
+        $validated['member_number'] = $request->input('member_number', 'MEM-' . now()->format('YmdHis') . '-' . rand(100, 999));
 
         // Create the record
         $requestData = ModelRequest::create($validated);

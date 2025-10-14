@@ -18,7 +18,7 @@ class MemberFactory extends Factory
     public function definition()
     {
     return [
-    'member_number' => strtoupper($this->faker->bothify('MBR-####')),
+    'member_number' => strtoupper($this->faker->unique()->bothify('MBR-####')),
     'user_id' => User::factory(), // Creates a user if none exists
     'full_name' => $this->faker->name(),
     'phone_number' => $this->faker->numerify('09#########'),

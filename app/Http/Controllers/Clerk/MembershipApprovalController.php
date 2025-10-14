@@ -19,10 +19,31 @@ class MembershipApprovalController extends Controller
             return response()->json(['message' => 'Request not found'], 404);
         }
 
-        return response()->json($request);
+        // Add document URLs
+        $requestData = $request->toArray();
+        $requestData['documents'] = [
+            'brgy_clearance' => $request->brgy_clearance 
+                ? asset('storage/' . $request->brgy_clearance) 
+                : null,
+            'birth_cert' => $request->birth_cert 
+                ? asset('storage/' . $request->birth_cert) 
+                : null,
+            'certificate_of_employment' => $request->certificate_of_employment 
+                ? asset('storage/' . $request->certificate_of_employment) 
+                : null,
+            'applicant_photo' => $request->applicant_photo 
+                ? asset('storage/' . $request->applicant_photo) 
+                : null,
+            'valid_id_front' => $request->valid_id_front 
+                ? asset('storage/' . $request->valid_id_front) 
+                : null,
+            'valid_id_back' => $request->valid_id_back 
+                ? asset('storage/' . $request->valid_id_back) 
+                : null,
+        ];
+
+        return response()->json($requestData);
     }
-
-
 
     public function getPendingRequests()
      {
@@ -45,13 +66,11 @@ class MembershipApprovalController extends Controller
         return response()->json($approvedRequests);
     }
 
-
     public function getAllRequests()
     {
         $requests = ModelRequest::orderBy('created_at', 'desc')->get();
         return response()->json($requests);
     }
-
 
     public function filterAndSortRequests(Request $request)
     {
@@ -75,36 +94,23 @@ class MembershipApprovalController extends Controller
         return response()->json($requests);
     }
 
-
-
-    // Membership Approval fuction 
-
+    // Membership Approval function 
     public function updateStatus(Request $request, $id)
 {
     $request->validate([
         'status' => 'required|in:pending,approved,rejected',
-        'is_member' => 'sometimes|boolean',
     ]);
 
-    DB::beginTransaction();
+        DB::beginTransaction();
 
     try {
         $userRequest = ModelRequest::findOrFail($id);
         $userRequest->status = $request->status;
         $userRequest->save();
-        // If approved, create a new member record
+
         if ($request->status === 'approved') {
-            // Check if already a member (prevent duplicate entry)
             $existingMember = Member::where('member_number', $userRequest->member_number)->first();
 
-            // Update user membership flag only if provided
-            $user = User::findOrFail($userRequest->user_id);
-            if ($request->has('is_member')) {
-                $user->is_member = $request->is_member;
-                $user->save();
-            }
-        
-            
             if (!$existingMember) {
                 Member::create([
                     'user_id' => $userRequest->user_id,
@@ -119,10 +125,6 @@ class MembershipApprovalController extends Controller
                     'civil_status' => $userRequest->civil_status,
                     'religion' => $userRequest->religion,
                     'number_of_children' => $userRequest->number_of_children,
-                    'spouse_name' => $userRequest->spouse_name,
-                    'spouse_employer' => $userRequest->spouse_employer,
-                    'spouse_monthly_income' => $userRequest->spouse_monthly_income,
-                    'spouse_birth_day' => $userRequest->spouse_birth_day,
                     'employer' => $userRequest->employer,
                     'position' => $userRequest->position,
                     'monthly_income' => $userRequest->monthly_income,
@@ -138,25 +140,70 @@ class MembershipApprovalController extends Controller
                     'applicant_photo' => $userRequest->applicant_photo,
                     'valid_id_front' => $userRequest->valid_id_front,
                     'valid_id_back' => $userRequest->valid_id_back,
+                    'spouse_name' => $userRequest->spouse_name,
+                    'spouse_employer' => $userRequest->spouse_employer,
+                    'spouse_monthly_income' => $userRequest->spouse_monthly_income,
+                    'spouse_birth_day' => $userRequest->spouse_birth_day,
                 ]);
+            }
+
+            // Mark user as member
+            $user = User::find($userRequest->user_id);
+            if ($user && !$user->is_member) {
+                $user->is_member = 1;
+                $user->save();
             }
         }
 
-        DB::commit();
+            DB::commit();
 
-        return response()->json([
-            'message' => 'Status updated successfully.',
-            'data' => $userRequest,
-        ]);
+            $response = [
+                'message' => 'Status updated successfully.',
+                'data' => $userRequest,
+            ];
+            if ($request->status === 'approved') {
+                $response['user'] = isset($user) ? $user->only(['id','email','is_member']) : null;
+                $response['member'] = $user?->member;
+            }
+            return response()->json($response);
 
-    } catch (\Exception $e) {
-        DB::rollBack();
+        } catch (\Exception $e) {
+            DB::rollBack();
 
-        return response()->json([
-            'message' => 'Failed to update status.',
-            'error' => $e->getMessage(),
-        ], 500);
+            return response()->json([
+                'message' => 'Failed to update status.',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
     }
-}
 
-}
+    public function show($id)
+    {
+        $requestItem = ModelRequest::findOrFail($id);
+        
+        // Add document URLs
+        $requestData = $requestItem->toArray();
+        $requestData['documents'] = [
+            'brgy_clearance' => $requestItem->brgy_clearance 
+                ? asset('storage/' . $requestItem->brgy_clearance) 
+                : null,
+            'birth_cert' => $requestItem->birth_cert 
+                ? asset('storage/' . $requestItem->birth_cert) 
+                : null,
+            'certificate_of_employment' => $requestItem->certificate_of_employment 
+                ? asset('storage/' . $requestItem->certificate_of_employment) 
+                : null,
+            'applicant_photo' => $requestItem->applicant_photo 
+                ? asset('storage/' . $requestItem->applicant_photo) 
+                : null,
+            'valid_id_front' => $requestItem->valid_id_front 
+                ? asset('storage/' . $requestItem->valid_id_front) 
+                : null,
+            'valid_id_back' => $requestItem->valid_id_back 
+                ? asset('storage/' . $requestItem->valid_id_back) 
+                : null,
+        ];
+
+        return response()->json($requestData);
+    }
+} 
