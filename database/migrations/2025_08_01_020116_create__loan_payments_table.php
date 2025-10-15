@@ -22,6 +22,8 @@ return new class extends Migration
             $table->string('receipt_number');
             $table->foreignId('received_by')->constrained('users')->onDelete('cascade');
             $table->text('notes')->nullable();
+            $table->string('payment_image')->nullable();
+            $table->enum('status', ['pending', 'approved', 'rejected'])->default('pending');
             $table->timestamps();
         });
     }

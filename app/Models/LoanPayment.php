@@ -19,7 +19,9 @@ class LoanPayment extends Model
         'payment_method',
         'receipt_number',
         'received_by',
-        'notes'
+        'notes',
+        'payment_image',
+        'status',
     ];
 
     protected $casts = [

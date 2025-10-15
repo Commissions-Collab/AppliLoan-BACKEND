@@ -30,6 +30,10 @@ Route::get('/user', function (Request $request) {
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
+Route::post('/verify-email', [AuthController::class, 'verifyEmail']);
+Route::post('/resend-verification-code', [AuthController::class, 'resendVerificationCode']);
+Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
+Route::post('/change-password', [AuthController::class, 'changePassword']);
 
 Route::middleware('auth:sanctum')->post('/logout', [AuthController::class, 'logout']);
 
@@ -83,6 +87,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
 
         Route::apiResource('/clerk-management', ManageClerkController::class);
+
+        Route::get('/payments', [\App\Http\Controllers\Admin\PaymentController::class, 'index']);
+        Route::get('/payments/{id}', [\App\Http\Controllers\Admin\PaymentController::class, 'show']);
+        Route::put('/payments/{id}/status', [\App\Http\Controllers\Admin\PaymentController::class, 'updateStatus']);
     });
 
     Route::middleware('role:loan_clerk')->prefix('/loan_clerk')->group(function () {
@@ -132,6 +140,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // Loan payments (reuse admin controller for consistency)
         Route::get('/appliances-loan/payments', [\App\Http\Controllers\Admin\LoanPaymentController::class, 'getLoanPayment']);
+
+        Route::get('/payments', [\App\Http\Controllers\Clerk\PaymentController::class, 'index']);
+        Route::get('/payments/{id}', [\App\Http\Controllers\Clerk\PaymentController::class, 'show']);
+        Route::put('/payments/{id}/status', [\App\Http\Controllers\Clerk\PaymentController::class, 'updateStatus']);
     });
 
     Route::middleware('role:member')->prefix('/member')->group(function () {
@@ -144,6 +156,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::post('/membership-apply', [MembershipApplyController::class, 'applyForMembership']);
 
-        Route::post('/loan-application', [LoanApplicationController::class, 'storeLoanApplication']);
+        Route::post('/payment', [\App\Http\Controllers\Member\PaymentController::class, 'store']);
+        Route::get('/payment/{id}', [\App\Http\Controllers\Member\PaymentController::class, 'show']);
     });
 });
