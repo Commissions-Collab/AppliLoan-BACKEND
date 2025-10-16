@@ -14,22 +14,27 @@ class VerificationCodeMail extends Mailable
     use Queueable, SerializesModels;
 
     public $code;
+    public $type;
 
     /**
      * Create a new message instance.
      */
-    public function __construct($code)
+    public function __construct($code, $type = 'signup')
     {
         $this->code = $code;
+        $this->type = $type;
     }
-
     /**
      * Get the message envelope.
      */
     public function envelope(): Envelope
     {
+        $subject = $this->type === 'forgot-password' 
+            ? 'Reset Your Password - Verification Code'
+            : 'Verify Your Account - Verification Code';
+            
         return new Envelope(
-            subject: 'Your Verification Code',
+            subject: $subject,
         );
     }
 

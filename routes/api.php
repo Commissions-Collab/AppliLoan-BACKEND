@@ -31,9 +31,11 @@ Route::get('/user', function (Request $request) {
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/verify-email', [AuthController::class, 'verifyEmail']);
+Route::post('/verify-otp', [AuthController::class, 'verifyEmail']); // Alias for frontend compatibility
 Route::post('/resend-verification-code', [AuthController::class, 'resendVerificationCode']);
+Route::post('/resend-otp', [AuthController::class, 'resendVerificationCode']); // Alias for frontend compatibility
 Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
-Route::post('/change-password', [AuthController::class, 'changePassword']);
+Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 
 Route::middleware('auth:sanctum')->post('/logout', [AuthController::class, 'logout']);
 
