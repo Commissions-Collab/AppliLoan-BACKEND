@@ -157,6 +157,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/profile', [MemberProfileController::class, 'show']);
 
         Route::post('/membership-apply', [MembershipApplyController::class, 'applyForMembership']);
+        Route::post('/loan-application', [LoanApplicationController::class, 'storeLoanApplication']);
 
         Route::post('/payment', [\App\Http\Controllers\Member\PaymentController::class, 'store']);
         Route::get('/payment/{id}', [\App\Http\Controllers\Member\PaymentController::class, 'show']);
