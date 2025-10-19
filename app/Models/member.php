@@ -74,7 +74,14 @@ class Member extends Model
 
     public function loans(): HasManyThrough
     {
-        return $this->hasManyThrough(Loan::class, LoanApplication::class);
+        return $this->hasManyThrough(
+            Loan::class,
+            LoanApplication::class,
+            'user_id', // Foreign key on loan_applications table
+            'loan_application_id', // Foreign key on loans table
+            'user_id', // Local key on members table
+            'id' // Local key on loan_applications table
+        );
     }
 
     public function memberLogins(): HasMany

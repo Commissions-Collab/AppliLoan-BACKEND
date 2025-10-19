@@ -32,11 +32,11 @@ class LoanMonitoringController extends Controller
             ->get();
 
         $totalPaid = $loans->sum(function ($loan) {
-            $loan->payments->sum('amount_paid');
+            return $loan->payments->sum('amount_paid');
         });
 
         $nextPaymentDate = $this->getNextPaymentDate($loans);
-        $totalDividends = $member->account?->savings_balance ?? 0;
+        $totalDividends = 0; // Temporarily set to 0 for testing
 
         $loansList = $loans->map(function ($loan) {
             $totalPaid = $loan->payments->sum('amount_paid');
