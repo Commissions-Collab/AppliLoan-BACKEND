@@ -83,4 +83,46 @@ class LoanPaymentController extends Controller
             'payments' => $loans
         ]);
     }
+
+    public function getLoanPaymentDetails($loanId)
+    {
+        $loan = Loan::with([
+            'application:id,user_id,product_id,user_name',
+            'application.user:id,email',
+            'application.product:id,name',
+            'payments' => function ($query) {
+                $query->orderBy('payment_date', 'desc');
+            },
+            'schedules' => function ($query) {
+                $query->orderBy('due_date', 'asc');
+            }
+        ])->findOrFail($loanId);
+
+        // Get member info if exists
+        $member = Member::where('user_id', $loan->application->user_id)->first();
+
+        return response()->json([
+            'loan' => $loan,
+            'member' => $member,
+        ]);
+    }
+
+    public function updatePaymentStatus(Request $request, $paymentId)
+    {
+        $request->validate([
+            'status' => 'required|in:pending,approved,rejected',
+        ]);
+
+        $payment = LoanPayment::findOrFail($paymentId);
+        $payment->status = $request->input('status');
+        $payment->save();
+
+        return response()->json([
+            'message' => 'Payment status updated successfully',
+            'payment' => $payment,
+        ]);
+    }
+    
+
+
 }

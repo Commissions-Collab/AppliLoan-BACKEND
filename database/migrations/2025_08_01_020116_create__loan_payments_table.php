@@ -18,7 +18,7 @@ return new class extends Migration
             $table->date('payment_date');
             $table->decimal('amount_paid', 12, 2);
             $table->decimal('remaining_balance', 10, 2);
-            $table->enum('payment_method', ['cash', 'check', 'bank_transfer']);
+            $table->enum('payment_method', ['gcash', 'check', 'bank_transfer']);
             $table->string('receipt_number');
             $table->foreignId('received_by')->constrained('users')->onDelete('cascade');
             $table->text('notes')->nullable();

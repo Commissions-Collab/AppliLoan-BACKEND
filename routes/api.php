@@ -14,11 +14,12 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Clerk\InventoryScannerController;
 use App\Http\Controllers\Clerk\LoanApplicationsController;
-use App\Http\Controllers\Clerk\LoanPaymentsController;
 use App\Http\Controllers\Clerk\MemberManagementController;
 use App\Http\Controllers\Member\LoanApplicationController;
 use App\Http\Controllers\Member\MembershipApplyController;
 use App\Http\Controllers\Member\MemberProfileController;
+use App\Http\Controllers\Member\PaymentController;
+use App\Http\Controllers\Clerk\LoanPaymentsController;
 
 Route::get('/', function () {
     return 'API IS WORKING';
@@ -85,14 +86,17 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('/appliances-loan/reject/{id}', 'rejectApplication');
         });
 
-        Route::get('/loan-payments', [LoanPaymentController::class, 'getLoanPayment']);
+        //  Get all loan payments (active loans with payment info)
+    Route::get('/loan-payments', [LoanPaymentController::class, 'getLoanPayment']);
+
+    // Get specific loan payment details
+    Route::get('/loan-payments/{loanId}/details', [LoanPaymentController::class, 'getLoanPaymentDetails']);
+
+    // Update payment status (approve, reject, pending)
+    Route::put('/loan-payments/{paymentId}/update-status', [LoanPaymentController::class, 'updatePaymentStatus']);
 
 
         Route::apiResource('/clerk-management', ManageClerkController::class);
-
-        Route::get('/payments', [\App\Http\Controllers\Admin\PaymentController::class, 'index']);
-        Route::get('/payments/{id}', [\App\Http\Controllers\Admin\PaymentController::class, 'show']);
-        Route::put('/payments/{id}/status', [\App\Http\Controllers\Admin\PaymentController::class, 'updateStatus']);
     });
 
     Route::middleware('role:loan_clerk')->prefix('/loan_clerk')->group(function () {
@@ -141,11 +145,18 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/appliances-loan/reject/{id}', [\App\Http\Controllers\Admin\AppliancesLoanController::class, 'rejectApplication']);
 
         // Loan payments (reuse admin controller for consistency)
-        Route::get('/appliances-loan/payments', [\App\Http\Controllers\Admin\LoanPaymentController::class, 'getLoanPayment']);
+        
+ //  Display summarized list of payments with loan info
+    Route::get('/payments/display', [LoanPaymentsController::class, 'displayPayMents']);
+    // Display all payments (with schedule & receiver)
+    Route::get('/payments', [LoanPaymentsController::class, 'index']);
 
-        Route::get('/payments', [\App\Http\Controllers\Clerk\PaymentController::class, 'index']);
-        Route::get('/payments/{id}', [\App\Http\Controllers\Clerk\PaymentController::class, 'show']);
-        Route::put('/payments/{id}/status', [\App\Http\Controllers\Clerk\PaymentController::class, 'updateStatus']);
+    //  Show a specific payment’s details
+    Route::get('/payments/{id}/show', [LoanPaymentsController::class, 'show']);
+
+    // Update payment status (pending, approved, rejected)
+    Route::put('/payments/{id}/update-status', [LoanPaymentsController::class, 'updateStatus']);
+        
     });
 
     Route::middleware('role:member')->prefix('/member')->group(function () {
@@ -159,7 +170,27 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/membership-apply', [MembershipApplyController::class, 'applyForMembership']);
         Route::post('/loan-application', [LoanApplicationController::class, 'storeLoanApplication']);
 
-        Route::post('/payment', [\App\Http\Controllers\Member\PaymentController::class, 'store']);
-        Route::get('/payment/{id}', [\App\Http\Controllers\Member\PaymentController::class, 'show']);
+       
+        // Create a down payment
+    Route::post('/payments/down-payment', [PaymentController::class, 'downPayment']);
+
+    //Make a payment for a specific loan
+    Route::post('/payments/{loanId}/make-payment', [PaymentController::class, 'makePayment']);
+
+    // Show a specific payment
+    Route::get('/payments/{id}/show', [PaymentController::class, 'show']);
+
+    //View status of a payment
+    Route::get('/payments/{id}/status', [PaymentController::class, 'viewStatus']);
+
+    // List all payments for the authenticated member
+    Route::get('/payments/list', [PaymentController::class, 'listPayments']);
+
+    //  View full payment history
+    Route::get('/payments/history', [PaymentController::class, 'historyPayments']);
+
+    //  List all payment schedules for a specific loan
+    Route::get('/payments/{loanId}/schedules', [PaymentController::class, 'paymentSchedules']);
+        
     });
 });

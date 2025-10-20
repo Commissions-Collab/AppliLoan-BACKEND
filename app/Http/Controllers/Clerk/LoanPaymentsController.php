@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Clerk;
 use App\Http\Controllers\Controller;
 use App\Models\LoanPayment;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 
 class LoanPaymentsController extends Controller
 {
@@ -18,5 +19,48 @@ class LoanPaymentsController extends Controller
             ->latest()
             ->get();
         return response()->json($displayPayments);
+    }
+
+    // display all payments for clerk
+    public function index()
+    {
+        $payments = LoanPayment::with(['loan', 'schedule', 'receivedBy'])->orderByDesc('created_at')->get();
+        return response()->json([
+            'payments' => $payments,
+        ], 200);
+
+    }
+
+    // show specific payment details
+    public function show($id)
+    {
+        $payment = LoanPayment::with(['loan', 'schedule', 'receivedBy'])->find($id);    
+        if (!$payment) {
+            return response()->json(['message' => 'Payment not found'], 404);
+        }
+        return response()->json([
+            'payment' => $payment,
+        ], 200);
+    }
+
+    // update payment status
+    public function updateStatus(Request $request, $id)
+    {
+        $validator = Validator::make($request->all(), [
+            'status' => 'required|in:pending,approved,rejected',
+        ]);
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+        $payment = LoanPayment::find($id);
+        if (!$payment) {
+            return response()->json(['message' => 'Payment not found'], 404);
+        }
+        $payment->status = $request->input('status');
+        $payment->save();
+        return response()->json([
+            'message' => 'Payment status updated successfully',
+            'payment' => $payment,
+        ], 200);
     }
 }
