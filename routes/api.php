@@ -156,6 +156,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Update payment status (pending, approved, rejected)
     Route::put('/payments/{id}/update-status', [LoanPaymentsController::class, 'updateStatus']);
+
+    // Loan summaries for clerk (active loans with payment info)
+    Route::get('/loans/summary', [\App\Http\Controllers\Admin\LoanPaymentController::class, 'getLoanPayment']);
+    Route::get('/loans/{loanId}/details', [\App\Http\Controllers\Admin\LoanPaymentController::class, 'getLoanPaymentDetails']);
         
     });
 
