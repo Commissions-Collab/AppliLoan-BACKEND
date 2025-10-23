@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Loan;
+use App\Models\LoanSchedule;
 use App\Models\LoanApplication;
+use App\Models\Product;
 use App\Models\Member;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -63,7 +65,7 @@ class AppliancesLoanController extends Controller
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
-        $application = LoanApplication::with('loanType')->findOrFail($id);
+        $application = LoanApplication::with(['loanType', 'product'])->findOrFail($id);
 
         if ($application->status === 'approved') {
             return response()->json(['message' => 'Application already approved'], 400);
@@ -72,6 +74,9 @@ class AppliancesLoanController extends Controller
         DB::beginTransaction();
 
         try {
+            // Stock handling moved to down payment approval to align with business rules.
+            // We no longer reserve/decrement stock at loan approval time.
+
             $loanNumber = $this->generateLoanNumber();
 
             /**
@@ -95,6 +100,9 @@ class AppliancesLoanController extends Controller
                 'purpose' => $application->purpose,
                 'status' => 'active'
             ]);
+
+            // Generate monthly payment schedules for the loan
+            $this->createLoanSchedules($loan, $releaseDate);
 
             $application->update([
                 'status' => 'approved'
@@ -281,9 +289,49 @@ class AppliancesLoanController extends Controller
 
     private function calculateMonthlyPayment($principal, $rate, $months)
     {
-        $interest = $principal * $rate;
+        // New business rule (restart):
+        // Downpayment is 20% of principal. The remaining 80% is divided equally by term.
+        $months = max(1, (int) $months);
+        $financed = ((float) $principal) * 0.8; // principal less 20%
+        return round($financed / $months, 2);
+    }
 
-        return ($principal + $interest) / $months;
+    /**
+     * Create loan schedules with simple interest split evenly across the term.
+     */
+    private function createLoanSchedules(Loan $loan, Carbon $releaseDate): void
+    {
+        $months = (int) $loan->term_months;
+        if ($months <= 0) {
+            return; // nothing to schedule
+        }
+
+        // Finance only 80% after downpayment
+        $principal = (float) $loan->principal_amount * 0.8;
+        // Interest excluded, simple split of financed amount
+        $basePrincipal = round($principal / $months, 2);
+        $accPrincipal = 0.0;
+
+        for ($i = 1; $i <= $months; $i++) {
+            // For the last installment, adjust to ensure totals match exactly
+            $principalPortion = ($i === $months)
+                ? round($principal - $accPrincipal, 2)
+                : $basePrincipal;
+            $interestPortion = 0.0;
+
+            $dueDate = $releaseDate->copy()->addMonths($i);
+
+            LoanSchedule::create([
+                'loan_id' => $loan->id,
+                'due_date' => $dueDate,
+                'amount_due' => round($principalPortion + $interestPortion, 2),
+                'principal_amount' => $principalPortion,
+                'interest_amount' => $interestPortion,
+                'status' => 'unpaid',
+            ]);
+
+            $accPrincipal += $principalPortion;
+        }
     }
 
     private function calculateDisposableIncome($member)

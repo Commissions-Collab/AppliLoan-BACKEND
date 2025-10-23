@@ -4,8 +4,11 @@ namespace App\Http\Controllers\Clerk;
 
 use App\Http\Controllers\Controller;
 use App\Models\LoanPayment;
+use App\Models\Product;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class LoanPaymentsController extends Controller
 {
@@ -52,15 +55,60 @@ class LoanPaymentsController extends Controller
         if ($validator->fails()) {
             return response()->json(['errors' => $validator->errors()], 422);
         }
-        $payment = LoanPayment::find($id);
+        $payment = LoanPayment::with(['loan.application.product', 'schedule'])->find($id);
         if (!$payment) {
             return response()->json(['message' => 'Payment not found'], 404);
         }
-        $payment->status = $request->input('status');
-        $payment->save();
-        return response()->json([
-            'message' => 'Payment status updated successfully',
-            'payment' => $payment,
-        ], 200);
+
+        DB::beginTransaction();
+        try {
+            $newStatus = $request->input('status');
+
+            if ($newStatus === 'approved') {
+                if (is_null($payment->schedule_id)) {
+                    // First approved downpayment triggers stock decrement
+                    $hasApprovedDownpayment = LoanPayment::where('loan_id', $payment->loan_id)
+                        ->whereNull('schedule_id')
+                        ->where('status', 'approved')
+                        ->exists();
+
+                    if (!$hasApprovedDownpayment) {
+                        $application = optional($payment->loan)->application;
+                        $productId = optional($application)->product_id;
+                        if ($productId) {
+                            $product = Product::whereKey($productId)->lockForUpdate()->first();
+                            if (!$product || (int) $product->stock_quantity <= 0) {
+                                throw ValidationException::withMessages([
+                                    'stock' => 'Insufficient stock to approve down payment',
+                                ]);
+                            }
+                            $product->decrement('stock_quantity');
+                        }
+                    }
+                } else {
+                    // Mark related schedule as paid
+                    if ($payment->schedule) {
+                        $payment->schedule->status = 'paid';
+                        $payment->schedule->save();
+                    }
+                }
+            }
+
+            $payment->status = $newStatus;
+            $payment->save();
+
+            DB::commit();
+            return response()->json([
+                'message' => 'Payment status updated successfully',
+                'payment' => $payment,
+            ], 200);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            $status = $e instanceof ValidationException ? 422 : 500;
+            return response()->json([
+                'message' => 'Failed to update payment status',
+                'error' => $e->getMessage(),
+            ], $status);
+        }
     }
 }

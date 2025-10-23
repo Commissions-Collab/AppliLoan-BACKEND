@@ -21,7 +21,8 @@ class PaymentController extends Controller
             'payment_date' => 'required|date',
             'amount_paid' => 'required|numeric|min:1',
             'remaining_balance' => 'required|numeric|min:0',
-            'payment_method' => 'required|in:cash,check,bank_transfer',
+            // Align with DB enum: ['gcash','check','bank_transfer']
+            'payment_method' => 'required|in:gcash,check,bank_transfer',
             'receipt_number' => 'required|string|max:255',
             'notes' => 'nullable|string',
             'payment_image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
@@ -33,6 +34,26 @@ class PaymentController extends Controller
 
         $data = $validator->validated();
         $data['received_by'] = Auth::id();
+
+        // Derive remaining balance server-side to avoid client-side drift
+        $loanId = $request->input('loan_id');
+        $approvedTotal = LoanPayment::where('loan_id', $loanId)
+            ->where('status', 'approved')
+            ->sum('amount_paid');
+        $loanPrincipal = optional(\App\Models\Loan::find($loanId))->principal_amount ?? 0;
+        $currentBalance = max(0, (float) $loanPrincipal - (float) $approvedTotal);
+
+        if ((float) $data['amount_paid'] > $currentBalance + 0.01) {
+            return response()->json([
+                'errors' => [
+                    'amount_paid' => [
+                        'Payment amount exceeds remaining balance'
+                    ],
+                ],
+            ], 422);
+        }
+
+        $data['remaining_balance'] = max(0, $currentBalance - (float) $data['amount_paid']);
 
         // Handle image upload
         if ($request->hasFile('payment_image')) {
@@ -169,7 +190,8 @@ class PaymentController extends Controller
             'payment_date' => 'required|date',
             'amount_paid' => 'required|numeric|min:1',
             'remaining_balance' => 'required|numeric|min:0',
-            'payment_method' => 'required|in:cash,check,bank_transfer',
+            // Align with DB enum: ['gcash','check','bank_transfer']
+            'payment_method' => 'required|in:gcash,check,bank_transfer',
             'receipt_number' => 'required|string|max:255',
             'notes' => 'nullable|string',
             'payment_image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
@@ -179,25 +201,44 @@ class PaymentController extends Controller
             return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
         }
 
-        $data = $validator->validated();
-        $data['loan_id'] = $loan->id;
-        $data['received_by'] = Auth::id();
+    $data = $validator->validated();
+    $data['loan_id'] = $loan->id;
+    $data['received_by'] = Auth::id();
 
         if ($request->hasFile('payment_image')) {
             $data['payment_image'] = $request->file('payment_image')->store('payment_images', 'public');
         }
 
-        if ($data['amount_paid'] > $data['remaining_balance']) {
+        // Require an approved down payment before allowing monthly/scheduled payments
+        $hasApprovedDownpayment = \App\Models\LoanPayment::where('loan_id', $loan->id)
+            ->whereNull('schedule_id')
+            ->where('status', 'approved')
+            ->exists();
+
+        if (!$hasApprovedDownpayment) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Down payment must be approved before making monthly payments.',
+            ], 422);
+        }
+
+        // Compute current outstanding from approved payments only
+        $approvedTotal = LoanPayment::where('loan_id', $loan->id)
+            ->where('status', 'approved')
+            ->sum('amount_paid');
+        $currentBalance = max(0, (float) $loan->principal_amount - (float) $approvedTotal);
+
+        if ((float) $data['amount_paid'] > $currentBalance + 0.01) {
             return response()->json([
                 'success' => false,
                 'message' => 'Payment amount exceeds remaining balance',
             ], 400);
         }
 
-        $payment = $loan->payments()->create($data);
+        // Override client-provided remaining_balance with server-derived value
+        $data['remaining_balance'] = max(0, $currentBalance - (float) $data['amount_paid']);
 
-        $loan->remaining_balance = $data['remaining_balance'];
-        $loan->save();
+        $payment = $loan->payments()->create($data);
 
         return response()->json([
             'success' => true,

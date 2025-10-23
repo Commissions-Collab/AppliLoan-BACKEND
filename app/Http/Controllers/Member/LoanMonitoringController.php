@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Member;
 
 use App\Http\Controllers\Controller;
+use App\Models\LoanPayment;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -31,17 +32,19 @@ class LoanMonitoringController extends Controller
             ->orderByDesc('created_at')
             ->get();
 
+        // Summary totals should reflect approved payments only
         $totalPaid = $loans->sum(function ($loan) {
-            return $loan->payments->sum('amount_paid');
+            return $loan->payments->where('status', 'approved')->sum('amount_paid');
         });
 
         $nextPaymentDate = $this->getNextPaymentDate($loans);
         $totalDividends = 0; // Temporarily set to 0 for testing
 
         $loansList = $loans->map(function ($loan) {
-            $totalPaid = $loan->payments->sum('amount_paid');
-
-            $progress = $loan->principal_amount > 0 ? round(($totalPaid / $loan->principal_amount) * 100, 1) : 0;
+            // Use approved payments for calculations and status
+            $approvedPaid = $loan->payments->where('status', 'approved')->sum('amount_paid');
+            $progress = $loan->principal_amount > 0 ? round(($approvedPaid / $loan->principal_amount) * 100, 1) : 0;
+            $remainingBalance = $loan->principal_amount - $approvedPaid;
 
             $nextSchedule = $loan->schedules
                 ->where('status', 'unpaid')
@@ -56,7 +59,27 @@ class LoanMonitoringController extends Controller
                 ? Carbon::parse($nextSchedule->due_date)->format('M j, Y')
                 : '-';
 
-            $status = $this->getLoanDetailedStatus($loan, $nextSchedule);
+            // Determine UI status based on downpayment state and completion
+            $hasApprovedDownpayment = \App\Models\LoanPayment::where('loan_id', $loan->id)
+                ->whereNull('schedule_id')
+                ->where('status', 'approved')
+                ->exists();
+
+            $hasPendingDownpayment = \App\Models\LoanPayment::where('loan_id', $loan->id)
+                ->whereNull('schedule_id')
+                ->where('status', 'pending')
+                ->exists();
+
+            if ($remainingBalance <= 0) {
+                $status = 'completed';
+            } elseif (!$hasApprovedDownpayment) {
+                $status = $hasPendingDownpayment
+                    ? 'awaiting_down_payment_verification'
+                    : 'pending_down_payment';
+            } else {
+                $derived = $this->getLoanDetailedStatus($loan, $nextSchedule); // e.g., Current/Overdue/Completed
+                $status = strtolower(str_replace(' ', '_', $derived));
+            }
             $dividend = $this->calculateDividend($loan);
 
             return [
@@ -64,7 +87,7 @@ class LoanMonitoringController extends Controller
                 'item' => $loan->application->product->name ?? 'N/A',
                 'status' => $status,
                 'amount' => '₱' . number_format($loan->principal_amount, 2),
-                'paid' => '₱' . number_format($totalPaid, 2),
+                'paid' => '₱' . number_format($approvedPaid, 2),
                 'progress' => $progress,
                 'next_billing' => $nextBilling,
                 'due_date' => $dueDate,
@@ -109,7 +132,8 @@ class LoanMonitoringController extends Controller
             ])
             ->findOrFail($loadId);
 
-        $totalPaid = $loan->payments->sum('amount_paid');
+        // Use approved payments only for detailed view calculations
+        $totalPaid = $loan->payments->where('status', 'approved')->sum('amount_paid');
         $remainingBalance = $loan->principal_amount - $totalPaid;
         $progress = $loan->principal_amount > 0
             ? round(($totalPaid / $loan->principal_amount) * 100, 1)
@@ -128,15 +152,55 @@ class LoanMonitoringController extends Controller
         });
 
         $payments = $loan->payments->map(function ($payment) {
+            // Normalize status for frontend (map 'pending' -> 'pending_verification')
+            $normalizedStatus = $payment->status === 'pending' ? 'pending_verification' : $payment->status;
+
+            // Determine payment type: down payment has no schedule_id
+            $type = is_null($payment->schedule_id) ? 'down_payment' : 'monthly_payment';
+
+            // Build receipt image URL if available
+            $imageUrl = $payment->payment_image
+                ? asset('storage/' . ltrim($payment->payment_image, '/'))
+                : null;
+
             return [
                 'id' => $payment->id,
                 'payment_date' => Carbon::parse($payment->payment_date)->format('M j, Y'),
                 'amount_paid' => '₱' . number_format($payment->amount_paid, 2),
                 'payment_method' => ucfirst(str_replace('_', ' ', $payment->payment_method)),
                 'receipt_number' => $payment->receipt_number,
-                'remaining_balance' => '₱' . number_format($payment->remaining_balance, 2)
+                'remaining_balance' => '₱' . number_format($payment->remaining_balance, 2),
+                'status' => $normalizedStatus,
+                'type' => $type,
+                'receipt_image_url' => $imageUrl,
             ];
         });
+
+        // Determine UI status flags and status string
+        $hasApprovedDownpayment = \App\Models\LoanPayment::where('loan_id', $loan->id)
+            ->whereNull('schedule_id')
+            ->where('status', 'approved')
+            ->exists();
+
+        $hasPendingDownpayment = \App\Models\LoanPayment::where('loan_id', $loan->id)
+            ->whereNull('schedule_id')
+            ->where('status', 'pending')
+            ->exists();
+
+        if ($remainingBalance <= 0) {
+            $uiStatus = 'completed';
+        } elseif (!$hasApprovedDownpayment) {
+            $uiStatus = $hasPendingDownpayment
+                ? 'awaiting_down_payment_verification'
+                : 'pending_down_payment';
+        } else {
+            $nextUnpaid = $loan->schedules
+                ->where('status', 'unpaid')
+                ->sortBy('due_date')
+                ->first();
+            $base = $this->getLoanDetailedStatus($loan, $nextUnpaid);
+            $uiStatus = strtolower(str_replace(' ', '_', $base));
+        }
 
         return response()->json([
             'success' => true,
@@ -152,9 +216,11 @@ class LoanMonitoringController extends Controller
                     'total_paid' => '₱' . number_format($totalPaid, 2),
                     'remaining_balance' => '₱' . number_format($remainingBalance, 2),
                     'progress_percentage' => $progress,
-                    'status' => ucfirst($loan->status),
+                    'status' => $uiStatus,
                     'release_date' => $loan->release_date ? Carbon::parse($loan->release_date)->format('M j, Y') : null,
                     'maturity_date' => $loan->maturity_date ? Carbon::parse($loan->maturity_date)->format('M j, Y') : null,
+                    'has_approved_downpayment' => $hasApprovedDownpayment,
+                    'has_pending_downpayment' => $hasPendingDownpayment,
                 ],
                 'schedules' => $schedules,
                 'payments' => $payments
