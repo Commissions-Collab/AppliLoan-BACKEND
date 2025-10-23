@@ -41,6 +41,8 @@ Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 Route::middleware('auth:sanctum')->post('/logout', [AuthController::class, 'logout']);
 
 Route::middleware('auth:sanctum')->group(function () {
+    // Allow any authenticated user (member or not) to submit a loan application
+    Route::post('/loan-application', [LoanApplicationController::class, 'storeLoanApplication']);
     Route::middleware('role:admin')->prefix('/admin')->group(function () {
         Route::controller(AnalyticsController::class)->group(function () {
             Route::get('/dashboard', 'dashboardData');
@@ -172,7 +174,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/profile', [MemberProfileController::class, 'show']);
 
         Route::post('/membership-apply', [MembershipApplyController::class, 'applyForMembership']);
-        Route::post('/loan-application', [LoanApplicationController::class, 'storeLoanApplication']);
+    // Kept for backward-compatibility; members can still post here
+    Route::post('/loan-application', [LoanApplicationController::class, 'storeLoanApplication']);
 
        
         // Create a down payment

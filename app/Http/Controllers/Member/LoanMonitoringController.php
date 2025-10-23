@@ -14,14 +14,25 @@ class LoanMonitoringController extends Controller
     {
         $member = Auth::user()->member;
 
-        if (!$member) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Member profile not found'
-            ], 404);
-        }
+        $userId = Auth::id();
 
-        $loans = $member->loans()
+        // If the user has no Member profile yet, still fetch loans by user_id so non-members see their loans
+        if (!$member) {
+            $loans = \App\Models\Loan::query()
+                ->with([
+                    'application.product',
+                    'schedules' => function ($query) {
+                        $query->orderBy('due_date');
+                    },
+                    'payments'
+                ])
+                ->whereHas('application', function ($q) use ($userId) {
+                    $q->where('user_id', $userId);
+                })
+                ->orderByDesc('created_at')
+                ->get();
+        } else {
+            $loans = $member->loans()
             ->with([
                 'application.product',
                 'schedules' => function ($query) {
@@ -31,6 +42,7 @@ class LoanMonitoringController extends Controller
             ])
             ->orderByDesc('created_at')
             ->get();
+        }
 
         // Summary totals should reflect approved payments only
         $totalPaid = $loans->sum(function ($loan) {
@@ -112,25 +124,38 @@ class LoanMonitoringController extends Controller
     public function show($loadId)
     {
         $member = Auth::user()->member;
+        $userId = Auth::id();
 
+        // If there's no Member profile yet, fetch the loan by user ownership via application.user_id
         if (!$member) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Member profile not found'
-            ], 404);
+            $loan = \App\Models\Loan::query()
+                ->with([
+                    'application.product',
+                    'schedules' => function ($query) {
+                        $query->orderBy('due_date');
+                    },
+                    'payments' => function ($query) {
+                        $query->orderBy('payment_date', 'desc');
+                    }
+                ])
+                ->where('id', $loadId)
+                ->whereHas('application', function ($q) use ($userId) {
+                    $q->where('user_id', $userId);
+                })
+                ->firstOrFail();
+        } else {
+            $loan = $member->loans()
+                ->with([
+                    'application.product',
+                    'schedules' => function ($query) {
+                        $query->orderBy('due_date');
+                    },
+                    'payments' => function ($query) {
+                        $query->orderBy('payment_date', 'desc');
+                    }
+                ])
+                ->findOrFail($loadId);
         }
-
-        $loan = $member->loans()
-            ->with([
-                'application.product',
-                'schedules' => function ($query) {
-                    $query->orderBy('due_date');
-                },
-                'payments' => function ($query) {
-                    $query->orderBy('payment_date', 'desc');
-                }
-            ])
-            ->findOrFail($loadId);
 
         // Use approved payments only for detailed view calculations
         $totalPaid = $loan->payments->where('status', 'approved')->sum('amount_paid');
