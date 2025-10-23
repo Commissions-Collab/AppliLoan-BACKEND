@@ -18,7 +18,8 @@ return new class extends Migration
             $table->date('payment_date');
             $table->decimal('amount_paid', 12, 2);
             $table->decimal('remaining_balance', 10, 2);
-            $table->enum('payment_method', ['gcash', 'check', 'bank_transfer']);
+            // Include 'cash' to support over-the-counter or seed data entries
+            $table->enum('payment_method', ['gcash', 'check', 'bank_transfer', 'cash']);
             $table->string('receipt_number');
             $table->foreignId('received_by')->constrained('users')->onDelete('cascade');
             $table->text('notes')->nullable();
@@ -33,6 +34,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('_loan_payments');
+        // Drop the correct table name on rollback
+        Schema::dropIfExists('loan_payments');
     }
 };

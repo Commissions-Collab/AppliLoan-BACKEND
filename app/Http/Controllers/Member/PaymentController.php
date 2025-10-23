@@ -21,8 +21,8 @@ class PaymentController extends Controller
             'payment_date' => 'required|date',
             'amount_paid' => 'required|numeric|min:1',
             'remaining_balance' => 'required|numeric|min:0',
-            // Align with DB enum: ['gcash','check','bank_transfer']
-            'payment_method' => 'required|in:gcash,check,bank_transfer',
+            // Align with DB enum: ['gcash','check','bank_transfer','cash']
+            'payment_method' => 'required|in:gcash,check,bank_transfer,cash',
             'receipt_number' => 'required|string|max:255',
             'notes' => 'nullable|string',
             'payment_image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
@@ -190,8 +190,8 @@ class PaymentController extends Controller
             'payment_date' => 'required|date',
             'amount_paid' => 'required|numeric|min:1',
             'remaining_balance' => 'required|numeric|min:0',
-            // Align with DB enum: ['gcash','check','bank_transfer']
-            'payment_method' => 'required|in:gcash,check,bank_transfer',
+            // Align with DB enum: ['gcash','check','bank_transfer','cash']
+            'payment_method' => 'required|in:gcash,check,bank_transfer,cash',
             'receipt_number' => 'required|string|max:255',
             'notes' => 'nullable|string',
             'payment_image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
