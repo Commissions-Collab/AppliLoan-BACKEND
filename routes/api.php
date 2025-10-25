@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Clerk\InventoryScannerController;
 use App\Http\Controllers\Clerk\LoanApplicationsController;
-use App\Http\Controllers\Clerk\MemberManagementController;
+use App\Http\Controllers\Admin\MemberManagementController;
 use App\Http\Controllers\Member\LoanApplicationController;
 use App\Http\Controllers\Member\MembershipApplyController;
 use App\Http\Controllers\Member\MemberProfileController;
@@ -39,7 +39,8 @@ Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
 Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 
 
-Route::post('/change-password', [AuthController::class, 'changePassword'])->middleware('auth:sanctum');
+// Change password for authenticated user
+Route::post('/change-password', [AuthController::class, 'userChangePassword'])->middleware('auth:sanctum');
 
 Route::middleware('auth:sanctum')->post('/logout', [AuthController::class, 'logout']);
 
@@ -72,12 +73,22 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/requests/approved', [MembershipApprovalController::class, 'getApprovedRequests']);
         Route::get('/requests/rejected', [MembershipApprovalController::class, 'getRejectedRequests']);
         Route::get('/requests/all', [MembershipApprovalController::class, 'getAllRequests']);
+    Route::get('/requests/by-user/{userId}', [MembershipApprovalController::class, 'getRequestByUser']);
         Route::get('/requests/filter', [MembershipApprovalController::class, 'filterAndSortRequests']);
         Route::get('/requests/{id}', [MembershipApprovalController::class, 'show']);
+    Route::delete('/requests/{id}', [MembershipApprovalController::class, 'destroy']);
 
-        // Members listing (approved members)
+        // Members listing (approved members) - include user email & user_id
         Route::get('/members', function () {
-            return \App\Models\Member::orderByDesc('created_at')->get();
+            return \App\Models\Member::with('user:id,email')
+                ->orderByDesc('created_at')
+                ->get()
+                ->map(function ($m) {
+                    return array_merge($m->toArray(), [
+                        'email' => optional($m->user)->email,
+                        'user_id' => $m->user_id,
+                    ]);
+                });
         });
 
         Route::put('/requests/{id}/status', [MembershipApprovalController::class, 'updateStatus']);
@@ -101,11 +112,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/loan-payments/{paymentId}/update-status', [LoanPaymentController::class, 'updatePaymentStatus']);
 
 
-        Route::apiResource('/clerk-management', ManageClerkController::class);
+    Route::apiResource('/clerk-management', ManageClerkController::class);
 
-        Route::get ('/members-management', [MemberManagementController::class, 'displayAllUsers']);
-        Route::get ('/members-management/{userId}', [MemberManagementController::class, 'getMemberDetails']);
-        Route::delete('/members-management/{userId}', [MemberManagementController::class, 'deleteMember']);
+    Route::get ('/members-management', [MemberManagementController::class, 'displayAllUsers']);
+    Route::get ('/members-management/{userId}', [MemberManagementController::class, 'getMemberDetails']);
+    // Define static route before dynamic {userId} to avoid conflicts when hitting /bulk-delete
+    Route::delete('/members-management/bulk-delete', [MemberManagementController::class, 'bulkDeleteUsers']);
+    Route::delete('/members-management/{userId}', [MemberManagementController::class, 'deleteMember']);
     });
 
     Route::middleware('role:loan_clerk')->prefix('/loan_clerk')->group(function () {
@@ -119,13 +132,36 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/requests/approved', [MembershipApprovalController::class, 'getApprovedRequests']);
         Route::get('/requests/rejected', [MembershipApprovalController::class, 'getRejectedRequests']);
         Route::get('/requests/all', [MembershipApprovalController::class, 'getAllRequests']);
+    Route::get('/requests/by-user/{userId}', [MembershipApprovalController::class, 'getRequestByUser']);
         Route::get('/requests/filter', [MembershipApprovalController::class, 'filterAndSortRequests']);
         Route::get('/requests/{id}', [MembershipApprovalController::class, 'show']);
         Route::put('/requests/{id}/status', [MembershipApprovalController::class, 'updateStatus']);
 
-        // Members listing for loan clerks
+        // Members listing for loan clerks - include user email & user_id (read-only)
         Route::get('/members', function () {
-            return \App\Models\Member::orderByDesc('created_at')->get();
+            return \App\Models\Member::with('user:id,email')
+                ->orderByDesc('created_at')
+                ->get()
+                ->map(function ($m) {
+                    return array_merge($m->toArray(), [
+                        'email' => optional($m->user)->email,
+                        'user_id' => $m->user_id,
+                    ]);
+                });
+        });
+
+        // Member detail for clerks by user_id (read-only)
+        Route::get('/members/{userId}', function ($userId) {
+            $member = \App\Models\Member::with('user:id,email')
+                ->where('user_id', $userId)
+                ->first();
+            if (!$member) {
+                return response()->json(['message' => 'Member not found'], 404);
+            }
+            $data = $member->toArray();
+            $data['email'] = optional($member->user)->email;
+            $data['user_id'] = $member->user_id;
+            return response()->json($data);
         });
 
 

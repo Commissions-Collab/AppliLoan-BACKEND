@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Models\Member;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class MemberManagementController extends Controller
 {
@@ -17,7 +19,7 @@ class MemberManagementController extends Controller
         $user = Auth::user();
 
         // Only allow admin to access
-        if ($user->role !== 'admin') {
+        if ($user->role !== UserRole::ADMIN) {
             return response()->json([
                 'success' => false,
                 'message' => 'Unauthorized access. Only admins can view all users.'
@@ -38,7 +40,7 @@ class MemberManagementController extends Controller
         $user = Auth::user();
 
         // Only allow admin to access
-        if ($user->role !== 'admin') {
+        if ($user->role !== UserRole::ADMIN) {
             return response()->json([
                 'success' => false,
                 'message' => 'Unauthorized access. Only admins can view member details.'
@@ -66,7 +68,7 @@ class MemberManagementController extends Controller
         $user = Auth::user();
 
         // Only allow admin to access
-        if ($user->role !== 'admin') {
+        if ($user->role !== UserRole::ADMIN) {
             return response()->json([
                 'success' => false,
                 'message' => 'Unauthorized access. Only admins can search members.'
@@ -87,38 +89,84 @@ class MemberManagementController extends Controller
         return response()->json($members);
     }
 
-    public function deleteMember($memberId)
+    // Delete by userId: remove the User and any related Member if present (robust for applicants without Member rows)
+    public function deleteMember($userId)
     {
-        $user = Auth::user();
+        $authUser = Auth::user();
 
         // Only allow admin to access
-        if ($user->role !== 'admin') {
+        if ($authUser->role !== UserRole::ADMIN) {
             return response()->json([
                 'success' => false,
                 'message' => 'Unauthorized access. Only admins can delete members.'
             ], 401);
         }
 
-        $member = Member::find($memberId);
-
-        if (!$member) {
+        $user = User::find($userId);
+        if (!$user) {
             return response()->json([
                 'success' => false,
-                'message' => 'Member not found.'
+                'message' => 'User not found.'
             ], 404);
         }
 
-        // Optionally, you might want to delete the associated user as well
-        $userToDelete = User::find($member->user_id);
-        if ($userToDelete) {
-            $userToDelete->delete();
-        }
-
-        $member->delete();
+        DB::transaction(function () use ($userId, $user) {
+            // Delete related member first if exists
+            $member = Member::where('user_id', $userId)->first();
+            if ($member) {
+                $member->delete();
+            }
+            // Then delete the user account
+            $user->delete();
+        });
 
         return response()->json([
             'success' => true,
-            'message' => 'Member deleted successfully.'
+            'message' => 'User and related member (if any) deleted successfully.'
+        ]);
+    }
+
+    public function bulkDeleteUsers(Request $request)
+    {
+        $authUser = Auth::user();
+
+        if ($authUser->role !== UserRole::ADMIN) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized access. Only admins can delete members.'
+            ], 401);
+        }
+
+        $userIds = $request->input('user_ids');
+
+        if (!is_array($userIds) || empty($userIds)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid request. Provide an array of user_ids.'
+            ], 422);
+        }
+
+        $deleted = 0;
+        DB::transaction(function () use ($userIds, &$deleted) {
+            foreach ($userIds as $uid) {
+                // Delete related member first if present
+                $member = Member::where('user_id', $uid)->first();
+                if ($member) {
+                    $member->delete();
+                }
+                // Delete the user record if exists
+                $userToDelete = User::find($uid);
+                if ($userToDelete) {
+                    $userToDelete->delete();
+                    $deleted++;
+                }
+            }
+        });
+
+        return response()->json([
+            'success' => true,
+            'deleted' => $deleted,
+            'message' => "Deleted {$deleted} member(s)."
         ]);
     }
 }

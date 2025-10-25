@@ -11,6 +11,51 @@ use Illuminate\Support\Facades\DB;
 
 class MembershipApprovalController extends Controller
 {
+    /**
+     * Get latest membership request by user_id
+     */
+    public function getRequestByUser($userId)
+    {
+        $request = ModelRequest::where('user_id', $userId)
+            ->orderByDesc('created_at')
+            ->first();
+        if (!$request) {
+            return response()->json(['message' => 'No membership request found for user'], 404);
+        }
+        // Attach document URLs like in show()
+        $data = $request->toArray();
+        $data['documents'] = [
+            'brgy_clearance' => $request->brgy_clearance ? asset('storage/' . $request->brgy_clearance) : null,
+            'birth_cert' => $request->birth_cert ? asset('storage/' . $request->birth_cert) : null,
+            'certificate_of_employment' => $request->certificate_of_employment ? asset('storage/' . $request->certificate_of_employment) : null,
+            'applicant_photo' => $request->applicant_photo ? asset('storage/' . $request->applicant_photo) : null,
+            'valid_id_front' => $request->valid_id_front ? asset('storage/' . $request->valid_id_front) : null,
+            'valid_id_back' => $request->valid_id_back ? asset('storage/' . $request->valid_id_back) : null,
+        ];
+        return response()->json($data);
+    }
+    /**
+     * Delete a membership request by ID.
+     * Admin-only via route middleware. This deletes the request record only.
+     */
+    public function destroy($id)
+    {
+        $request = ModelRequest::find($id);
+        if (!$request) {
+            return response()->json(['message' => 'Request not found'], 404);
+        }
+
+        try {
+            $request->delete();
+            return response()->json(['message' => 'Request deleted successfully.']);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Failed to delete request.',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
     public function showMemberRequests($id)
     {
         $request = ModelRequest::find($id);
