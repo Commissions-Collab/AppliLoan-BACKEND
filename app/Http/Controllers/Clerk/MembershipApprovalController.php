@@ -8,6 +8,8 @@ use App\Models\ModelRequest;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\StatusUpdateMail;
 
 class MembershipApprovalController extends Controller
 {
@@ -67,23 +69,23 @@ class MembershipApprovalController extends Controller
         // Add document URLs
         $requestData = $request->toArray();
         $requestData['documents'] = [
-            'brgy_clearance' => $request->brgy_clearance 
-                ? asset('storage/' . $request->brgy_clearance) 
+            'brgy_clearance' => $request->brgy_clearance
+                ? asset('storage/' . $request->brgy_clearance)
                 : null,
-            'birth_cert' => $request->birth_cert 
-                ? asset('storage/' . $request->birth_cert) 
+            'birth_cert' => $request->birth_cert
+                ? asset('storage/' . $request->birth_cert)
                 : null,
-            'certificate_of_employment' => $request->certificate_of_employment 
-                ? asset('storage/' . $request->certificate_of_employment) 
+            'certificate_of_employment' => $request->certificate_of_employment
+                ? asset('storage/' . $request->certificate_of_employment)
                 : null,
-            'applicant_photo' => $request->applicant_photo 
-                ? asset('storage/' . $request->applicant_photo) 
+            'applicant_photo' => $request->applicant_photo
+                ? asset('storage/' . $request->applicant_photo)
                 : null,
-            'valid_id_front' => $request->valid_id_front 
-                ? asset('storage/' . $request->valid_id_front) 
+            'valid_id_front' => $request->valid_id_front
+                ? asset('storage/' . $request->valid_id_front)
                 : null,
-            'valid_id_back' => $request->valid_id_back 
-                ? asset('storage/' . $request->valid_id_back) 
+            'valid_id_back' => $request->valid_id_back
+                ? asset('storage/' . $request->valid_id_back)
                 : null,
         ];
 
@@ -91,10 +93,10 @@ class MembershipApprovalController extends Controller
     }
 
     public function getPendingRequests()
-     {
-            $pendingRequests = ModelRequest::where('status', 'pending')->get();
+    {
+        $pendingRequests = ModelRequest::where('status', 'pending')->get();
 
-            return response()->json($pendingRequests);
+        return response()->json($pendingRequests);
     }
 
     public function getApprovedRequests()
@@ -141,77 +143,80 @@ class MembershipApprovalController extends Controller
 
     // Membership Approval function 
     public function updateStatus(Request $request, $id)
-{
-    $request->validate([
-        'status' => 'required|in:pending,approved,rejected',
-    ]);
+    {
+        $request->validate([
+            'status' => 'required|in:pending,approved,rejected',
+        ]);
 
         DB::beginTransaction();
 
-    try {
-        $userRequest = ModelRequest::findOrFail($id);
-        $userRequest->status = $request->status;
-        $userRequest->save();
+        try {
+            $userRequest = ModelRequest::findOrFail($id);
+            $userRequest->status = $request->status;
+            $userRequest->save();
 
-        if ($request->status === 'approved') {
-            $existingMember = Member::where('member_number', $userRequest->member_number)->first();
+            if ($request->status === 'approved') {
+                $existingMember = Member::where('member_number', $userRequest->member_number)->first();
 
-            if (!$existingMember) {
-                Member::create([
-                    'user_id' => $userRequest->user_id,
-                    'member_number' => $userRequest->member_number,
-                    'full_name' => $userRequest->full_name,
-                    'phone_number' => $userRequest->phone_number,
-                    'address' => $userRequest->address,
-                    'tin_number' => $userRequest->tin_number,
-                    'date_of_birth' => $userRequest->date_of_birth,
-                    'place_of_birth' => $userRequest->place_of_birth,
-                    'age' => $userRequest->age,
-                    'civil_status' => $userRequest->civil_status,
-                    'religion' => $userRequest->religion,
-                    'number_of_children' => $userRequest->number_of_children,
-                    'employer' => $userRequest->employer,
-                    'position' => $userRequest->position,
-                    'monthly_income' => $userRequest->monthly_income,
-                    'other_income' => $userRequest->other_income,
-                    'share_capital' => $userRequest->share_capital,
-                    'fixed_deposit' => $userRequest->fixed_deposit,
-                    'seminar_date' => $userRequest->seminar_date,
-                    'venue' => $userRequest->venue,
-                    'status' => 'approved',
-                    'brgy_clearance' => $userRequest->brgy_clearance,
-                    'birth_cert' => $userRequest->birth_cert,
-                    'certificate_of_employment' => $userRequest->certificate_of_employment,
-                    'applicant_photo' => $userRequest->applicant_photo,
-                    'valid_id_front' => $userRequest->valid_id_front,
-                    'valid_id_back' => $userRequest->valid_id_back,
-                    'spouse_name' => $userRequest->spouse_name,
-                    'spouse_employer' => $userRequest->spouse_employer,
-                    'spouse_monthly_income' => $userRequest->spouse_monthly_income,
-                    'spouse_birth_day' => $userRequest->spouse_birth_day,
-                ]);
+                if (!$existingMember) {
+                    Member::create([
+                        'user_id' => $userRequest->user_id,
+                        'member_number' => $userRequest->member_number,
+                        'full_name' => $userRequest->full_name,
+                        'phone_number' => $userRequest->phone_number,
+                        'address' => $userRequest->address,
+                        'tin_number' => $userRequest->tin_number,
+                        'date_of_birth' => $userRequest->date_of_birth,
+                        'place_of_birth' => $userRequest->place_of_birth,
+                        'age' => $userRequest->age,
+                        'civil_status' => $userRequest->civil_status,
+                        'religion' => $userRequest->religion,
+                        'number_of_children' => $userRequest->number_of_children,
+                        'employer' => $userRequest->employer,
+                        'position' => $userRequest->position,
+                        'monthly_income' => $userRequest->monthly_income,
+                        'other_income' => $userRequest->other_income,
+                        'share_capital' => $userRequest->share_capital,
+                        'fixed_deposit' => $userRequest->fixed_deposit,
+                        'seminar_date' => $userRequest->seminar_date,
+                        'venue' => $userRequest->venue,
+                        'status' => 'approved',
+                        'brgy_clearance' => $userRequest->brgy_clearance,
+                        'birth_cert' => $userRequest->birth_cert,
+                        'certificate_of_employment' => $userRequest->certificate_of_employment,
+                        'applicant_photo' => $userRequest->applicant_photo,
+                        'valid_id_front' => $userRequest->valid_id_front,
+                        'valid_id_back' => $userRequest->valid_id_back,
+                        'spouse_name' => $userRequest->spouse_name,
+                        'spouse_employer' => $userRequest->spouse_employer,
+                        'spouse_monthly_income' => $userRequest->spouse_monthly_income,
+                        'spouse_birth_day' => $userRequest->spouse_birth_day,
+                    ]);
+                }
+
+                // Mark user as member
+                $user = User::find($userRequest->user_id);
+                if ($user && !$user->is_member) {
+                    $user->is_member = 1;
+                    $user->save();
+                }
             }
-
-            // Mark user as member
-            $user = User::find($userRequest->user_id);
-            if ($user && !$user->is_member) {
-                $user->is_member = 1;
-                $user->save();
-            }
-        }
 
             DB::commit();
+
+            if ($user && $user->email) {
+                Mail::to($user->email)->send(new StatusUpdateMail($user, $request->status));
+            }
 
             $response = [
                 'message' => 'Status updated successfully.',
                 'data' => $userRequest,
             ];
             if ($request->status === 'approved') {
-                $response['user'] = isset($user) ? $user->only(['id','email','is_member']) : null;
+                $response['user'] = isset($user) ? $user->only(['id', 'email', 'is_member']) : null;
                 $response['member'] = $user?->member;
             }
             return response()->json($response);
-
         } catch (\Exception $e) {
             DB::rollBack();
 
@@ -225,30 +230,30 @@ class MembershipApprovalController extends Controller
     public function show($id)
     {
         $requestItem = ModelRequest::findOrFail($id);
-        
+
         // Add document URLs
         $requestData = $requestItem->toArray();
         $requestData['documents'] = [
-            'brgy_clearance' => $requestItem->brgy_clearance 
-                ? asset('storage/' . $requestItem->brgy_clearance) 
+            'brgy_clearance' => $requestItem->brgy_clearance
+                ? asset('storage/' . $requestItem->brgy_clearance)
                 : null,
-            'birth_cert' => $requestItem->birth_cert 
-                ? asset('storage/' . $requestItem->birth_cert) 
+            'birth_cert' => $requestItem->birth_cert
+                ? asset('storage/' . $requestItem->birth_cert)
                 : null,
-            'certificate_of_employment' => $requestItem->certificate_of_employment 
-                ? asset('storage/' . $requestItem->certificate_of_employment) 
+            'certificate_of_employment' => $requestItem->certificate_of_employment
+                ? asset('storage/' . $requestItem->certificate_of_employment)
                 : null,
-            'applicant_photo' => $requestItem->applicant_photo 
-                ? asset('storage/' . $requestItem->applicant_photo) 
+            'applicant_photo' => $requestItem->applicant_photo
+                ? asset('storage/' . $requestItem->applicant_photo)
                 : null,
-            'valid_id_front' => $requestItem->valid_id_front 
-                ? asset('storage/' . $requestItem->valid_id_front) 
+            'valid_id_front' => $requestItem->valid_id_front
+                ? asset('storage/' . $requestItem->valid_id_front)
                 : null,
-            'valid_id_back' => $requestItem->valid_id_back 
-                ? asset('storage/' . $requestItem->valid_id_back) 
+            'valid_id_back' => $requestItem->valid_id_back
+                ? asset('storage/' . $requestItem->valid_id_back)
                 : null,
         ];
 
         return response()->json($requestData);
     }
-} 
+}
