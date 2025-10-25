@@ -87,38 +87,47 @@ class MemberManagementController extends Controller
         return response()->json($members);
     }
 
-    public function deleteMember($memberId)
-    {
-        $user = Auth::user();
+    public function deleteMember($userId)
+        {
+            $authUser = Auth::user();
 
-        // Only allow admin to access
-        if ($user->role !== 'admin') {
+            // Only allow admin to delete users
+            if ($authUser->role !== 'admin') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized access. Only admins can delete user accounts.'
+                ], 401);
+            }
+
+            // Find the user by ID
+            $user = User::find($userId);
+
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'User not found.'
+                ], 404);
+            }
+
+            // Prevent deletion of other admins or clerks if desired
+            if (in_array($user->role, ['admin', 'clerk'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You cannot delete admin or clerk accounts.'
+                ], 403);
+            }
+
+            // If user has a related Member record, delete it too
+            if ($user->member) {
+                $user->member->delete();
+            }
+
+            // Delete the user account
+            $user->delete();
+
             return response()->json([
-                'success' => false,
-                'message' => 'Unauthorized access. Only admins can delete members.'
-            ], 401);
+                'success' => true,
+                'message' => 'User account deleted successfully.'
+            ]);
         }
-
-        $member = Member::find($memberId);
-
-        if (!$member) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Member not found.'
-            ], 404);
-        }
-
-        // Optionally, you might want to delete the associated user as well
-        $userToDelete = User::find($member->user_id);
-        if ($userToDelete) {
-            $userToDelete->delete();
-        }
-
-        $member->delete();
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Member deleted successfully.'
-        ]);
-    }
 }
