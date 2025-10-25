@@ -218,6 +218,24 @@ class LoanPaymentController extends Controller
             $payment->status = $newStatus;
             $payment->save();
 
+            // Send notification email to borrower when payment is approved
+            if ($newStatus === 'approved') {
+                try {
+                    $user = optional($payment->loan->application->user);
+                    if ($user && $user->email) {
+                        \Illuminate\Support\Facades\Mail::to($user->email)->send(
+                            new \App\Mail\PaymentApprovedMail($user, $payment, $payment->loan)
+                        );
+                    }
+                } catch (\Throwable $e) {
+                    // Log but do not fail the operation
+                    \Illuminate\Support\Facades\Log::error('Failed to send payment approved email', [
+                        'payment_id' => $payment->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+
             DB::commit();
 
             return response()->json([

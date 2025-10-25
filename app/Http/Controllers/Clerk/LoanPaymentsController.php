@@ -98,10 +98,27 @@ class LoanPaymentsController extends Controller
             $payment->save();
 
             DB::commit();
-            return response()->json([
-                'message' => 'Payment status updated successfully',
-                'payment' => $payment,
-            ], 200);
+                // Notify borrower when payment is approved
+                if ($newStatus === 'approved') {
+                    try {
+                        $user = optional($payment->loan->application->user);
+                        if ($user && $user->email) {
+                            \Illuminate\Support\Facades\Mail::to($user->email)->send(
+                                new \App\Mail\PaymentApprovedMail($user, $payment, $payment->loan)
+                            );
+                        }
+                    } catch (\Throwable $e) {
+                        \Illuminate\Support\Facades\Log::error('Failed to send payment approved email (clerk)', [
+                            'payment_id' => $payment->id,
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
+                }
+
+                return response()->json([
+                    'message' => 'Payment status updated successfully',
+                    'payment' => $payment,
+                ], 200);
         } catch (\Throwable $e) {
             DB::rollBack();
             $status = $e instanceof ValidationException ? 422 : 500;
