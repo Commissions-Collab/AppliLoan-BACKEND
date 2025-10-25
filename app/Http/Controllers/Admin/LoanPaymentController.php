@@ -218,19 +218,28 @@ class LoanPaymentController extends Controller
             $payment->status = $newStatus;
             $payment->save();
 
-            // Send notification email to borrower when payment is approved
-            if ($newStatus === 'approved') {
+            // Send notification email to borrower when payment is approved or rejected
+            if ($newStatus === 'approved' || $newStatus === 'rejected') {
                 try {
                     $user = optional($payment->loan->application->user);
                     if ($user && $user->email) {
-                        \Illuminate\Support\Facades\Mail::to($user->email)->send(
-                            new \App\Mail\PaymentApprovedMail($user, $payment, $payment->loan)
-                        );
+                        if ($newStatus === 'approved') {
+                            \Illuminate\Support\Facades\Mail::to($user->email)->send(
+                                new \App\Mail\PaymentApprovedMail($user, $payment, $payment->loan)
+                            );
+                        } else {
+                            // Rejected
+                            $reason = $payment->notes ?? null;
+                            \Illuminate\Support\Facades\Mail::to($user->email)->send(
+                                new \App\Mail\PaymentRejectedMail($user, $payment, $reason)
+                            );
+                        }
                     }
                 } catch (\Throwable $e) {
                     // Log but do not fail the operation
-                    \Illuminate\Support\Facades\Log::error('Failed to send payment approved email', [
+                    \Illuminate\Support\Facades\Log::error('Failed to send payment email (approved/rejected)', [
                         'payment_id' => $payment->id,
+                        'new_status' => $newStatus,
                         'error' => $e->getMessage(),
                     ]);
                 }
