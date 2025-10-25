@@ -38,6 +38,9 @@ Route::post('/resend-otp', [AuthController::class, 'resendVerificationCode']); /
 Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
 Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 
+
+Route::post('/change-password', [AuthController::class, 'changePassword'])->middleware('auth:sanctum');
+
 Route::middleware('auth:sanctum')->post('/logout', [AuthController::class, 'logout']);
 
 Route::middleware('auth:sanctum')->group(function () {
@@ -99,6 +102,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
 
         Route::apiResource('/clerk-management', ManageClerkController::class);
+
+        Route::get ('/members-management', [MemberManagementController::class, 'displayAllUsers']);
+        Route::get ('/members-management/{userId}', [MemberManagementController::class, 'getMemberDetails']);
+        Route::delete('/members-management/{userId}', [MemberManagementController::class, 'deleteMember']);
     });
 
     Route::middleware('role:loan_clerk')->prefix('/loan_clerk')->group(function () {
