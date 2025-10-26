@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\LoanPaymentDueMail;
+use App\Mail\LoanPaymentPastDueMail;
 use App\Models\LoanSchedule;
 use App\Models\User;
 use Carbon\Carbon;
@@ -50,11 +51,19 @@ class SendDueLoanReminders extends Command
 
             if ($user && $user->email) {
                 try {
-                    Mail::to($user->email)->send(
-                        new LoanPaymentDueMail($user, $loan, $dueDate, $daysRemaining)
-                    );
+                    if ($daysRemaining < 0) {
+                        // Past due: send past-due template with days past
+                        Mail::to($user->email)->send(
+                            new LoanPaymentPastDueMail($user, $loan, $dueDate, $daysRemaining)
+                        );
+                    } else {
+                        // Upcoming or today: send reminder
+                        Mail::to($user->email)->send(
+                            new LoanPaymentDueMail($user, $loan, $dueDate, $daysRemaining)
+                        );
+                    }
 
-                    $this->info("Reminder sent to {$user->email} for Loan #{$loan->loan_number}");
+                    $this->info("Reminder/past-due notice sent to {$user->email} for Loan #{$loan->loan_number}");
                 } catch (\Exception $e) {
                     Log::error('Failed to send loan payment reminder', [
                         'email' => $user->email,
