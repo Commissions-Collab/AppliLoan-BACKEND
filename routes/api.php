@@ -180,6 +180,7 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::delete('/products/{id}', 'destroyProduct');
             Route::get('/products', 'indexProduct');
             Route::get('/products/barcode/{barcode}', 'showByBarcode');  // For scanning
+            Route::post('/products/decrement', 'decrementStock'); // atomic decrement via barcode
             Route::patch('/products/{id}/stock', 'updateStock');  // Quick stock update via scan
             Route::get('/products/filter', 'filterProducts');
         });

@@ -7,6 +7,7 @@ use App\Models\Category;
 use App\Models\Product;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
 
 class InventoryScannerController extends Controller
 {
@@ -172,6 +173,61 @@ class InventoryScannerController extends Controller
             'message' => 'Stock updated successfully',
             'product' => $product
         ], 200);
+    }
+
+    /**
+     * Decrement stock by barcode (atomic, used by barcode scanners)
+     */
+    public function decrementStock(Request $request)
+    {
+        $request->validate(['barcode' => 'required|string']);
+
+        try {
+            $result = DB::transaction(function () use ($request) {
+                $product = Product::where('barcode', $request->barcode)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (!$product) {
+                    return [
+                        'success' => false,
+                        'message' => 'Product not found. Please check the barcode.'
+                    ];
+                }
+
+                if ($product->status !== 'active') {
+                    return [
+                        'success' => false,
+                        'message' => "Product '{$product->name}' is discontinued."
+                    ];
+                }
+
+                if ($product->stock_quantity <= 0) {
+                    return [
+                        'success' => false,
+                        'message' => "Product '{$product->name}' is out of stock."
+                    ];
+                }
+
+                $product->decrement('stock_quantity', 1);
+
+                return [
+                    'success' => true,
+                    'message' => "Stock decremented successfully for '{$product->name}'.",
+                    'product' => [
+                        'name' => $product->name,
+                        'remaining_stock' => $product->stock_quantity,
+                    ],
+                ];
+            });
+
+            return response()->json($result);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Server error: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 
     // Additional filters (similar to admin)
