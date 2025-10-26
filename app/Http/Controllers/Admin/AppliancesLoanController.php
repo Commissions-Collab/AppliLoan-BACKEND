@@ -110,6 +110,22 @@ class AppliancesLoanController extends Controller
 
             DB::commit();
 
+            // Notify applicant by email about the approval
+            try {
+                $user = optional($application->user);
+                if ($user && $user->email) {
+                    \Illuminate\Support\Facades\Mail::to($user->email)->send(
+                        new \App\Mail\LoanStatusUpdateMail($user, $application)
+                    );
+                }
+            } catch (\Throwable $e) {
+                // Log but don't fail the approval
+                \Illuminate\Support\Facades\Log::error('Failed to send loan application approved email', [
+                    'application_id' => $application->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+
             return response()->json([
                 'message' => 'Loan application approved successfully',
                 'loan' => $loan
@@ -152,6 +168,21 @@ class AppliancesLoanController extends Controller
             ]);
 
             DB::commit();
+
+            // Notify applicant by email about the rejection
+            try {
+                $user = optional($application->user);
+                if ($user && $user->email) {
+                    \Illuminate\Support\Facades\Mail::to($user->email)->send(
+                        new \App\Mail\LoanStatusUpdateMail($user, $application)
+                    );
+                }
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error('Failed to send loan application rejected email', [
+                    'application_id' => $application->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
 
             return response()->json([
                 'message' => 'Loan application rejected successfully',

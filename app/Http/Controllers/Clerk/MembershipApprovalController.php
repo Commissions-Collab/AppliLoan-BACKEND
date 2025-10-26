@@ -146,6 +146,7 @@ class MembershipApprovalController extends Controller
     {
         $request->validate([
             'status' => 'required|in:pending,approved,rejected',
+            'rejection_reason' => 'nullable|string',
         ]);
 
         DB::beginTransaction();
@@ -204,8 +205,21 @@ class MembershipApprovalController extends Controller
 
             DB::commit();
 
+            // Fetch user for notification regardless of status
+            $user = User::find($userRequest->user_id);
+
             if ($user && $user->email) {
-                Mail::to($user->email)->send(new StatusUpdateMail($user, $request->status));
+                try {
+                    Mail::to($user->email)->send(
+                        new StatusUpdateMail($user, $request->status, $request->rejection_reason ?? null)
+                    );
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::error('Failed to send membership status email', [
+                        'user_id' => $user->id ?? null,
+                        'status' => $request->status,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
             }
 
             $response = [

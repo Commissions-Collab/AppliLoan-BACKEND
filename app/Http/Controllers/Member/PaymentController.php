@@ -40,8 +40,15 @@ class PaymentController extends Controller
         $approvedTotal = LoanPayment::where('loan_id', $loanId)
             ->where('status', 'approved')
             ->sum('amount_paid');
-        $loanPrincipal = optional(\App\Models\Loan::find($loanId))->principal_amount ?? 0;
-        $currentBalance = max(0, (float) $loanPrincipal - (float) $approvedTotal);
+
+        // Calculate principal including interest: 5% per term month, capped at 5 months (max 25%)
+        $loanModel = \App\Models\Loan::find($loanId);
+        $principal = optional($loanModel)->principal_amount ?? 0;
+        $months = max(1, optional($loanModel)->term_months ?? 1);
+        $termClamped = max(1, min($months, 5));
+        $interestRate = 0.05 * $termClamped;
+        $principalWithInterest = round((float) $principal * (1 + $interestRate), 2);
+        $currentBalance = max(0, (float) $principalWithInterest - (float) $approvedTotal);
 
         if ((float) $data['amount_paid'] > $currentBalance + 0.01) {
             return response()->json([
@@ -226,7 +233,14 @@ class PaymentController extends Controller
         $approvedTotal = LoanPayment::where('loan_id', $loan->id)
             ->where('status', 'approved')
             ->sum('amount_paid');
-        $currentBalance = max(0, (float) $loan->principal_amount - (float) $approvedTotal);
+
+        // Calculate principal including interest: 5% per term month, capped at 5 months (max 25%)
+        $principal = $loan->principal_amount ?? 0;
+        $months = max(1, $loan->term_months ?? 1);
+        $termClamped = max(1, min($months, 5));
+        $interestRate = 0.05 * $termClamped;
+        $principalWithInterest = round((float) $principal * (1 + $interestRate), 2);
+        $currentBalance = max(0, (float) $principalWithInterest - (float) $approvedTotal);
 
         if ((float) $data['amount_paid'] > $currentBalance + 0.01) {
             return response()->json([

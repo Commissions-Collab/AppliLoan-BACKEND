@@ -14,6 +14,9 @@
         <p>🎉 Congratulations! You are now an approved member of our organization.</p>
     @elseif ($status === 'rejected')
         <p>Unfortunately, your membership application was not approved at this time. You may contact support for more information.</p>
+        @if(!empty($reason))
+            <p><strong>Reason:</strong> {{ $reason }}</p>
+        @endif
     @else
         <p>Your application is still under review. Please wait for further updates.</p>
     @endif
