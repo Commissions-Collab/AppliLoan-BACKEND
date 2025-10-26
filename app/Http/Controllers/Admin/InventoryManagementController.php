@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Category;
 use App\Models\Product;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 class InventoryManagementController extends Controller
@@ -64,6 +65,7 @@ class InventoryManagementController extends Controller
     {
         $validated = $request->validate([
             'category_id' => 'required|exists:categories,id',
+            'barcode' => 'nullable|string|max:255|unique:products,barcode',
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'unit' => 'required|string|max:50',
@@ -92,6 +94,7 @@ class InventoryManagementController extends Controller
 
         $validated = $request->validate([
             'category_id' => 'required|exists:categories,id',
+            'barcode' => 'nullable|string|max:255|unique:products,barcode,' . $product->id,
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'unit' => 'required|string|max:50',
@@ -116,6 +119,7 @@ class InventoryManagementController extends Controller
             'product' => $product,
         ], 200);
     }
+
 
     public function destroyProduct($id)
     {
@@ -210,5 +214,58 @@ class InventoryManagementController extends Controller
         });
 
         return response()->json($products, 200);
+    }
+
+    public function decrementStock(Request $request)
+    {
+        $request->validate(['barcode' => 'required|string']);
+
+        try {
+            $result = DB::transaction(function () use ($request) {
+                $product = Product::where('barcode', $request->barcode)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (!$product) {
+                    return [
+                        'success' => false,
+                        'message' => 'Product not found. Please check the barcode.'
+                    ];
+                }
+
+                if ($product->status !== 'active') {
+                    return [
+                        'success' => false,
+                        'message' => "Product '{$product->name}' is discontinued."
+                    ];
+                }
+
+                if ($product->stock_quantity <= 0) {
+                    return [
+                        'success' => false,
+                        'message' => "Product '{$product->name}' is out of stock."
+                    ];
+                }
+
+                // decrement stock
+                $product->decrement('stock_quantity', 1);
+
+                return [
+                    'success' => true,
+                    'message' => "Stock decremented successfully for '{$product->name}'.",
+                    'product' => [
+                        'name' => $product->name,
+                        'remaining_stock' => $product->stock_quantity,
+                    ],
+                ];
+            });
+
+            return response()->json($result);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Server error: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 }
