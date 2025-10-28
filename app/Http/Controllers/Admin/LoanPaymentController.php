@@ -54,8 +54,20 @@ class LoanPaymentController extends Controller
                 ->where('status', 'approved')
                 ->sum('amount_paid');
             $remainingBalance = $loan->principal_amount - $totalApprovedPaid;
+            
             // Completed installments = schedules marked as paid
             $paymentsCompleted = $loan->schedules()->where('status', 'paid')->count();
+            
+            // Check if down payment is approved (counts as first month)
+            $hasApprovedDownPayment = $loan->payments()
+                ->whereNull('schedule_id')
+                ->where('status', 'approved')
+                ->exists();
+            
+            // If down payment is approved, add 1 to payments completed
+            if ($hasApprovedDownPayment) {
+                $paymentsCompleted += 1;
+            }
             
             // Determine payment status
             $paymentStatus = 'Current';
@@ -112,40 +124,52 @@ class LoanPaymentController extends Controller
 
     /**
      * Create basic monthly schedules if missing, based on release_date or approval_date.
+     * Down payment counts as first month, so we create schedules for (term_months - 1)
      */
     protected function ensureLoanSchedules(Loan $loan): void
     {
-        $months = (int) $loan->term_months;
-        if ($months <= 0) return;
+        $totalMonths = (int) $loan->term_months;
+        if ($totalMonths <= 0) return;
 
         // Use release_date if available, otherwise approval_date, otherwise today
         $startDate = $loan->release_date
             ? Carbon::parse($loan->release_date)
             : ($loan->approval_date ? Carbon::parse($loan->approval_date) : Carbon::today());
 
-    // Business rule (restart): Finance 80% after downpayment
-    $principal = (float) $loan->principal_amount * 0.8;
-    $basePrincipal = round($principal / $months, 2);
-    $accPrincipal = 0.0;
+        // Down payment counts as first month, so create schedules for remaining months
+        $remainingMonths = $totalMonths - 1;
+        
+        if ($remainingMonths <= 0) {
+            return; // Only down payment needed
+        }
 
-        for ($i = 1; $i <= $months; $i++) {
-            $principalPortion = ($i === $months)
-                ? round($principal - $accPrincipal, 2)
-                : $basePrincipal;
-            $interestPortion = 0.0;
+        $principal = (float) $loan->principal_amount;
+        
+        // Down payment = 25.5% of principal
+        $downPayment = round($principal * 0.255, 2);
+        
+        // Remaining principal after down payment
+        $remainingPrincipal = $principal - $downPayment;
+        
+        // Monthly principal payment (remaining principal / remaining months)
+        $monthlyPrincipal = round($remainingPrincipal / $remainingMonths, 2);
+        
+        // Monthly interest (3% of original principal)
+        $monthlyInterest = round($principal * 0.03, 2);
+        
+        $monthlyAmount = $monthlyPrincipal + $monthlyInterest;
 
+        for ($i = 1; $i <= $remainingMonths; $i++) {
             $dueDate = $startDate->copy()->addMonths($i);
 
             LoanSchedule::create([
                 'loan_id' => $loan->id,
                 'due_date' => $dueDate,
-                'amount_due' => round($principalPortion + $interestPortion, 2),
-                'principal_amount' => $principalPortion,
-                'interest_amount' => $interestPortion,
+                'amount_due' => $monthlyAmount,
+                'principal_amount' => $monthlyPrincipal,
+                'interest_amount' => $monthlyInterest,
                 'status' => 'unpaid',
             ]);
-
-            $accPrincipal += $principalPortion;
         }
     }
 

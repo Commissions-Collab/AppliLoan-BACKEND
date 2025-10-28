@@ -55,10 +55,10 @@ class LoanMonitoringController extends Controller
         $loansList = $loans->map(function ($loan) {
             // Use approved payments for calculations and status
             $approvedPaid = $loan->payments->where('status', 'approved')->sum('amount_paid');
-            // Apply interest depending on term: 5% per term (capped to 25% for term >=5)
-            $principalWithInterest = $this->principalWithInterest($loan);
-            $progress = $principalWithInterest > 0 ? round(($approvedPaid / $principalWithInterest) * 100, 1) : 0;
-            $remainingBalance = $principalWithInterest - $approvedPaid;
+            // Apply new calculation: down payment (25.5%) + monthly payments (23% each)
+            $totalLoanAmount = $this->calculateTotalLoanAmount($loan);
+            $progress = $totalLoanAmount > 0 ? round(($approvedPaid / $totalLoanAmount) * 100, 1) : 0;
+            $remainingBalance = $totalLoanAmount - $approvedPaid;
 
             $nextSchedule = $loan->schedules
                 ->where('status', 'unpaid')
@@ -100,8 +100,8 @@ class LoanMonitoringController extends Controller
                 'id' => $loan->id,
                 'item' => $loan->application->product->name ?? 'N/A',
                 'status' => $status,
-                    // show principal including applied interest
-                    'amount' => '₱' . number_format($principalWithInterest, 2),
+                    // show total loan amount with new calculation
+                    'amount' => '₱' . number_format($totalLoanAmount, 2),
                 'paid' => '₱' . number_format($approvedPaid, 2),
                 'progress' => $progress,
                 'next_billing' => $nextBilling,
@@ -162,11 +162,11 @@ class LoanMonitoringController extends Controller
 
         // Use approved payments only for detailed view calculations
         $totalPaid = $loan->payments->where('status', 'approved')->sum('amount_paid');
-        // principal including interest applied depending on term
-        $principalWithInterest = $this->principalWithInterest($loan);
-        $remainingBalance = $principalWithInterest - $totalPaid;
-        $progress = $principalWithInterest > 0
-            ? round(($totalPaid / $principalWithInterest) * 100, 1)
+        // Calculate total loan amount using new formula
+        $totalLoanAmount = $this->calculateTotalLoanAmount($loan);
+        $remainingBalance = $totalLoanAmount - $totalPaid;
+        $progress = $totalLoanAmount > 0
+            ? round(($totalPaid / $totalLoanAmount) * 100, 1)
             : 0;
 
         $schedules = $loan->schedules->map(function ($schedule) {
@@ -239,13 +239,15 @@ class LoanMonitoringController extends Controller
                     'id' => $loan->id,
                     'loan_number' => $loan->loan_number,
                     'appliance' => $loan->application->product->name ?? 'N/A',
-                    // show principal including applied interest and recompute monthly payment based on term
-                    'principal_amount' => '₱' . number_format($principalWithInterest, 2),
+                    // Return actual principal (not total loan amount)
+                    'principal_amount' => '₱' . number_format($loan->principal_amount, 2),
+                    // Return total loan amount separately
+                    'total_loan_amount' => '₱' . number_format($totalLoanAmount, 2),
                     'monthly_payment' => '₱' . number_format(
-                        $loan->term_months > 0 ? ($principalWithInterest / $loan->term_months) : $loan->monthly_payment,
+                        $this->calculateMonthlyPayment($loan),
                         2
                     ),
-                    'interest_rate' => $loan->interest_rate . '%',
+                    'interest_rate' => '3%', // 3% interest per monthly payment
                     'term_months' => $loan->term_months,
                     'total_paid' => '₱' . number_format($totalPaid, 2),
                     'remaining_balance' => '₱' . number_format($remainingBalance, 2),
@@ -306,28 +308,73 @@ class LoanMonitoringController extends Controller
     }
 
     /**
-     * Compute principal including interest based on term.
-     * Interest = 5% per term month, capped at 5 (i.e. max 25%).
+     * Calculate total loan amount using new formula:
+     * Total = Principal + Interest (3% per month on remaining balance)
+     * Down payment = 25.5% of principal
+     * Remaining principal divided across remaining months + interest
      * Returns a float (rounded to 2 decimals).
      */
-    private function principalWithInterest($loan)
+    private function calculateTotalLoanAmount($loan)
     {
-        $term = isset($loan->term_months) ? intval($loan->term_months) : 1;
-        // cap term between 1 and 5
-        $term = max(1, min($term, 5));
-        $interestRate = 0.05 * $term; // 5% per term
         $principal = isset($loan->principal_amount) ? floatval($loan->principal_amount) : 0.0;
-
-        return round($principal * (1 + $interestRate), 2);
+        $totalMonths = isset($loan->term_months) ? max(1, intval($loan->term_months)) : 1;
+        
+        // Down payment = 25.5% of principal (23% + 2.5% service fee)
+        $downPayment = round($principal * 0.255, 2);
+        
+        // Remaining principal after down payment
+        $remainingPrincipal = $principal - $downPayment;
+        
+        // Remaining months after down payment (which counts as first month)
+        $remainingMonths = max(1, $totalMonths - 1);
+        
+        // Monthly principal payment (remaining principal / remaining months)
+        $monthlyPrincipal = round($remainingPrincipal / $remainingMonths, 2);
+        
+        // Monthly interest (3% of original principal per month)
+        $monthlyInterest = round($principal * 0.03, 2);
+        
+        // Total monthly payment
+        $monthlyPayment = $monthlyPrincipal + $monthlyInterest;
+        
+        // Total = down payment + (remaining months * monthly payment)
+        return round($downPayment + ($remainingMonths * $monthlyPayment), 2);
+    }
+    
+    /**
+     * Calculate monthly payment amount
+     * Returns a float (rounded to 2 decimals).
+     */
+    private function calculateMonthlyPayment($loan)
+    {
+        $principal = isset($loan->principal_amount) ? floatval($loan->principal_amount) : 0.0;
+        $totalMonths = isset($loan->term_months) ? max(1, intval($loan->term_months)) : 1;
+        
+        // Down payment = 25.5% of principal
+        $downPayment = round($principal * 0.255, 2);
+        
+        // Remaining principal after down payment
+        $remainingPrincipal = $principal - $downPayment;
+        
+        // Remaining months
+        $remainingMonths = max(1, $totalMonths - 1);
+        
+        // Monthly principal payment
+        $monthlyPrincipal = round($remainingPrincipal / $remainingMonths, 2);
+        
+        // Monthly interest (3% of original principal)
+        $monthlyInterest = round($principal * 0.03, 2);
+        
+        return round($monthlyPrincipal + $monthlyInterest, 2);
     }
 
     private function calculateDividend($loan)
     {
         // Dividend calculation logic - typically paid on completed loans
         if ($loan->status === 'closed') {
-            // Simple dividend calculation: 2% of principal amount (including applied interest)
-            $principalWithInterest = $this->principalWithInterest($loan);
-            return $principalWithInterest * 0.02;
+            // Simple dividend calculation: 2% of total loan amount
+            $totalLoanAmount = $this->calculateTotalLoanAmount($loan);
+            return $totalLoanAmount * 0.02;
         }
 
         return 0;

@@ -320,48 +320,60 @@ class AppliancesLoanController extends Controller
 
     private function calculateMonthlyPayment($principal, $rate, $months)
     {
-        // New business rule (restart):
-        // Downpayment is 20% of principal. The remaining 80% is divided equally by term.
-        $months = max(1, (int) $months);
-        $financed = ((float) $principal) * 0.8; // principal less 20%
-        return round($financed / $months, 2);
+        // New business rule:
+        // Monthly payment is 20% of principal + 3% interest
+        $principal = (float) $principal;
+        $monthlyPrincipal = $principal * 0.20; // 20% of principal
+        $monthlyInterest = $principal * 0.03; // 3% interest
+        return round($monthlyPrincipal + $monthlyInterest, 2);
     }
 
     /**
-     * Create loan schedules with simple interest split evenly across the term.
+     * Create loan schedules with new calculation:
+     * Down payment counts as first month, so we create schedules for (term_months - 1)
+     * Each monthly payment = (remaining principal / remaining months) + 3% interest
      */
     private function createLoanSchedules(Loan $loan, Carbon $releaseDate): void
     {
-        $months = (int) $loan->term_months;
-        if ($months <= 0) {
+        $totalMonths = (int) $loan->term_months;
+        if ($totalMonths <= 0) {
             return; // nothing to schedule
         }
 
-        // Finance only 80% after downpayment
-        $principal = (float) $loan->principal_amount * 0.8;
-        // Interest excluded, simple split of financed amount
-        $basePrincipal = round($principal / $months, 2);
-        $accPrincipal = 0.0;
+        // Down payment counts as first month, so create schedules for remaining months
+        $remainingMonths = $totalMonths - 1;
+        
+        if ($remainingMonths <= 0) {
+            return; // Only down payment needed
+        }
 
-        for ($i = 1; $i <= $months; $i++) {
-            // For the last installment, adjust to ensure totals match exactly
-            $principalPortion = ($i === $months)
-                ? round($principal - $accPrincipal, 2)
-                : $basePrincipal;
-            $interestPortion = 0.0;
+        $principal = (float) $loan->principal_amount;
+        
+        // Down payment = 25.5% of principal
+        $downPayment = round($principal * 0.255, 2);
+        
+        // Remaining principal after down payment
+        $remainingPrincipal = $principal - $downPayment;
+        
+        // Monthly principal payment (remaining principal / remaining months)
+        $monthlyPrincipal = round($remainingPrincipal / $remainingMonths, 2);
+        
+        // Monthly interest (3% of original principal)
+        $monthlyInterest = round($principal * 0.03, 2);
+        
+        $monthlyAmount = $monthlyPrincipal + $monthlyInterest;
 
+        for ($i = 1; $i <= $remainingMonths; $i++) {
             $dueDate = $releaseDate->copy()->addMonths($i);
 
             LoanSchedule::create([
                 'loan_id' => $loan->id,
                 'due_date' => $dueDate,
-                'amount_due' => round($principalPortion + $interestPortion, 2),
-                'principal_amount' => $principalPortion,
-                'interest_amount' => $interestPortion,
+                'amount_due' => $monthlyAmount,
+                'principal_amount' => $monthlyPrincipal,
+                'interest_amount' => $monthlyInterest,
                 'status' => 'unpaid',
             ]);
-
-            $accPrincipal += $principalPortion;
         }
     }
 
