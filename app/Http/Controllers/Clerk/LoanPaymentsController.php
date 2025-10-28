@@ -136,4 +136,99 @@ class LoanPaymentsController extends Controller
             ], $status);
         }
     }
+
+    /**
+     * Upload QR code image for payments
+     */
+    public function uploadQRCode(Request $request)
+    {
+        $request->validate([
+            'qr_code_image' => 'required|image|mimes:jpeg,png,jpg,gif|max:5120', // 5MB max
+        ]);
+
+        try {
+            if ($request->hasFile('qr_code_image')) {
+                $file = $request->file('qr_code_image');
+                $filename = 'qr_code_' . time() . '.' . $file->getClientOriginalExtension();
+                $path = $file->storeAs('payment_qr_codes', $filename, 'public');
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'QR code uploaded successfully',
+                    'qr_code_path' => $path,
+                    'qr_code_url' => asset('storage/' . $path),
+                ]);
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => 'No file uploaded',
+            ], 400);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to upload QR code',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Get current QR code
+     */
+    public function getQRCode()
+    {
+        try {
+            // Get the most recently uploaded QR code from any payment record
+            $latestQRCode = LoanPayment::whereNotNull('payment_qr_code')
+                ->orderBy('updated_at', 'desc')
+                ->first();
+
+            if ($latestQRCode && $latestQRCode->payment_qr_code) {
+                return response()->json([
+                    'success' => true,
+                    'qr_code_path' => $latestQRCode->payment_qr_code,
+                    'qr_code_url' => asset('storage/' . $latestQRCode->payment_qr_code),
+                ]);
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => 'No QR code found',
+            ], 404);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to retrieve QR code',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Update QR code for all future payments
+     */
+    public function updateQRCode(Request $request)
+    {
+        $request->validate([
+            'qr_code_path' => 'required|string',
+        ]);
+
+        try {
+            // Update all pending payments to use the new QR code
+            LoanPayment::where('status', 'pending')
+                ->update(['payment_qr_code' => $request->qr_code_path]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'QR code updated for all pending payments',
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update QR code',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
 }

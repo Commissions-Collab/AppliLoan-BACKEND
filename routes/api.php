@@ -103,6 +103,11 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('/appliances-loan/reject/{id}', 'rejectApplication');
         });
 
+        // QR Code management for payments (must be before dynamic routes)
+        Route::post('/loan-payments/qr-code/upload', [LoanPaymentController::class, 'uploadQRCode']);
+        Route::get('/loan-payments/qr-code', [LoanPaymentController::class, 'getQRCode']);
+        Route::put('/loan-payments/qr-code/update', [LoanPaymentController::class, 'updateQRCode']);
+
         //  Get all loan payments (active loans with payment info)
         Route::get('/loan-payments', [LoanPaymentController::class, 'getLoanPayment']);
 
@@ -193,12 +198,17 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // Loan payments (reuse admin controller for consistency)
 
+        // QR Code management for payments (must be before dynamic routes)
+        Route::post('/payments/qr-code/upload', [LoanPaymentsController::class, 'uploadQRCode']);
+        Route::get('/payments/qr-code', [LoanPaymentsController::class, 'getQRCode']);
+        Route::put('/payments/qr-code/update', [LoanPaymentsController::class, 'updateQRCode']);
+
         //  Display summarized list of payments with loan info
         Route::get('/payments/display', [LoanPaymentsController::class, 'displayPayMents']);
         // Display all payments (with schedule & receiver)
         Route::get('/payments', [LoanPaymentsController::class, 'index']);
 
-        //  Show a specific payment’s details
+        //  Show a specific payment's details
         Route::get('/payments/{id}/show', [LoanPaymentsController::class, 'show']);
 
         // Update payment status (pending, approved, rejected)
@@ -233,6 +243,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
         //View status of a payment
         Route::get('/payments/{id}/status', [PaymentController::class, 'viewStatus']);
+
+        // Get QR code for payments (must be before dynamic routes)
+        Route::get('/payments/qr-code', [\App\Http\Controllers\Admin\LoanPaymentController::class, 'getQRCode']);
 
         // List all payments for the authenticated member
         Route::get('/payments/list', [PaymentController::class, 'listPayments']);
