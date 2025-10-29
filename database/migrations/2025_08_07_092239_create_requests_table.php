@@ -14,25 +14,52 @@ return new class extends Migration
         Schema::create('requests', function (Blueprint $table) {
             $table->id();
             $table->foreignId('request_to')->constrained('users')->onDelete('cascade');
+            $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
             $table->string('member_number')->unique();
             $table->string('full_name');
             $table->string('phone_number');
-            $table->string('street_address')->nullable();
-            $table->string('city')->nullable();
-            $table->string('province')->nullable();
-            $table->string('postal_code')->nullable();
-            $table->string('tin_number')->nullable();
+            $table->string('address')->nullable();
             $table->date('date_of_birth')->nullable();
             $table->string('place_of_birth')->nullable();
-            $table->integer('age')->nullable();
-            $table->integer('dependents')->nullable();
+            $table->integer('age')->nullable(); 
+            $table->enum('civil_status', ['single', 'married', 'widowed', 'separated'])->nullable();
+            $table->string('religion')->nullable();
+            $table->integer('tin_number')->nullable();
+            $table->enum('status', ['pending', 'approved', 'rejected'])->default('pending');
+            $table->timestamps();
+
+            //employment details
             $table->string('employer')->nullable();
             $table->string('position')->nullable();
             $table->decimal('monthly_income', 12, 2)->default(0.00);
-            $table->decimal('other_income', 12, 2)->default(0.00);
-            $table->enum('monthly_disposable_income_range', ['0-5000', '5001-10000', '10001-20000', '20001+'])->nullable();
-            $table->enum('status', ['pending', 'approved', 'rejected'])->default('pending');
-            $table->timestamps();
+            $table->string('other_income')->nullable();
+
+            //child details
+            $table->integer('number_of_children')->nullable();
+
+            // spouse details
+            $table->string('spouse_name')->nullable();
+            $table->string('spouse_employer')->nullable();
+            $table->decimal('spouse_monthly_income', 12, 2)->nullable();
+            $table->string('spouse_birth_day')->nullable();
+
+            // financial details
+            $table->decimal('share_capital', 12, 2)->default(20.00);
+            $table->decimal('fixed_deposit', 12, 2)->default(0.00);
+
+            
+
+            // seminar details
+            $table->string('seminar_date');
+            $table->string('venue');
+
+            // required documents
+            $table->string('brgy_clearance')->nullable();
+            $table->string('birth_cert')->nullable();
+            $table->string('certificate_of_employment')->nullable();
+            $table->string('applicant_photo')->nullable();
+            $table->string('valid_id_front')->nullable();
+            $table->string('valid_id_back')->nullable();
         });
     }
 

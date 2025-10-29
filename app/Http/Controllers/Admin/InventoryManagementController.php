@@ -6,64 +6,53 @@ use App\Http\Controllers\Controller;
 use App\Models\Category;
 use App\Models\Product;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 class InventoryManagementController extends Controller
 {
-     public function storeCategory(Request $request){
-        $validated = $request -> validate([
-            'name'=>'required|string|max:255',
-            'description'=>'required|string|max:255'
+    public function storeCategory(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'description' => 'required|string|max:255'
         ]);
 
-        $categories = Category ::create([
-            'name'=>$validated['name'],
-            'description'=>$validated['description'],
-        ]);
+        $category = Category::create($validated);
 
         return response()->json([
-            'message' => 'categories successfully',
-            'categories' => $categories,
+            'message' => 'Category created successfully',
+            'category' => $category, // Fixed key
         ], 201);
     }
 
+    public function updateCategory(Request $request, $id)
+    {
+        $category = Category::findOrFail($id); // Use findOrFail
 
-    //update
-    public function updateCategory(Request $request,$id){
-        $categories = Category::find($id);
-        if (!$categories) {
-            return response()->json(['message' => 'Category not found'], 404);
-        }
-
-        $validated = $request -> validate([
-            'name'=>'required|string|max:255',
-            'description'=>'required|string|max:255'
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'description' => 'required|string|max:255'
         ]);
 
-        $categories->update($validated);
+        $category->update($validated);
 
         return response()->json([
-            'message' => 'categories successfully',
-            'categories' => $categories,
-        ], 201);
+            'message' => 'Category updated successfully',
+            'category' => $category, // Fixed key
+        ], 200); // Fixed status
     }
 
-
-    // delete
-    public function deleteCategory(Request $request,$id){
-        $category = Category::find($id);
-
-        if (!$category) {
-            return response()->json(['message' => 'Category not found'], 404);
-        }
-
+    public function deleteCategory($id) // Removed unused $request
+    {
+        $category = Category::findOrFail($id);
         $category->delete();
 
         return response()->json(['message' => 'Category deleted successfully'], 200);
     }
 
-    public function indexCategory(){
-        
+    public function indexCategory()
+    {
         $categories = Category::all();
 
         return response()->json([
@@ -72,78 +61,71 @@ class InventoryManagementController extends Controller
         ], 200);
     }
 
-    //product
-    public function storeProduct(Request $request){
-         $validated = $request->validate([
-        'category_id' => 'required|exists:categories,id',
-        'name' => 'required|string|max:255',
-        'description' => 'nullable|string',
-        'unit' => 'required|string|max:50',
-        'price' => 'required|numeric|min:0',
-        'stock_quantity' => 'required|integer|min:0',
-        'image' => 'nullable|image|mimes:jpg,jpeg,png,gif|max:2048',
-        'status' => 'in:active,discontinued',
-    ]);     
+    public function storeProduct(Request $request)
+    {
+        $validated = $request->validate([
+            'category_id' => 'required|exists:categories,id',
+            'barcode' => 'nullable|string|max:255|unique:products,barcode',
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'unit' => 'required|string|max:50',
+            'price' => 'required|numeric|min:0',
+            'stock_quantity' => 'required|integer|min:0',
+            'image' => 'nullable|image|mimes:jpg,jpeg,png,gif|max:2048',
+            'status' => 'in:active,discontinued',
+        ]);
 
-    // Handle image upload if exists
-    if ($request->hasFile('image')) {
-        $imagePath = $request->file('image')->store('product_images', 'public');
-        $validated['image'] = $imagePath;
-    }
-
-    $product = Product::create($validated);
-
-    return response()->json([
-        'message' => 'Product created successfully',
-        'product' => $product,
-    ], 201);
-    }
-
-
-  public function updateProduct(Request $request, $id)
-{
-    $product = Product::findOrFail($id);
-
-    $validated = $request->validate([
-        'category_id' => 'required|exists:categories,id',
-        'name' => 'required|string|max:255',
-        'description' => 'nullable|string',
-        'unit' => 'required|string|max:50',
-        'price' => 'required|numeric|min:0',
-        'stock_quantity' => 'required|integer|min:0',
-        'image' => 'nullable|image|mimes:jpg,jpeg,png,gif|max:2048',
-        'status' => 'in:active,discontinued',
-    ]);
-
-    // Handle image upload if exists
-    if ($request->hasFile('image')) {
-        // Optionally delete the old image
-        if ($product->image) {
-            Storage::disk('public')->delete($product->image);
+        if ($request->hasFile('image')) {
+            $imagePath = $request->file('image')->store('product_images', 'public');
+            $validated['image'] = $imagePath;
         }
 
-        $imagePath = $request->file('image')->store('product_images', 'public');
-        $validated['image'] = $imagePath;
+        $product = Product::create($validated);
+
+        return response()->json([
+            'message' => 'Product created successfully',
+            'product' => $product,
+        ], 201);
     }
 
-    $product->update($validated);
+    public function updateProduct(Request $request, $id)
+    {
+        $product = Product::findOrFail($id);
 
-    return response()->json([
-        'message' => 'Product updated successfully',
-        'product' => $product,
-    ], 200);
-}
+        $validated = $request->validate([
+            'category_id' => 'required|exists:categories,id',
+            'barcode' => 'nullable|string|max:255|unique:products,barcode,' . $product->id,
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'unit' => 'required|string|max:50',
+            'price' => 'required|numeric|min:0',
+            'stock_quantity' => 'required|integer|min:0',
+            'image' => 'nullable|image|mimes:jpg,jpeg,png,gif|max:2048',
+            'status' => 'in:active,discontinued',
+        ]);
+
+        if ($request->hasFile('image')) {
+            if ($product->image) {
+                Storage::disk('public')->delete($product->image);
+            }
+            $imagePath = $request->file('image')->store('product_images', 'public');
+            $validated['image'] = $imagePath;
+        }
+
+        $product->update($validated);
+
+        return response()->json([
+            'message' => 'Product updated successfully',
+            'product' => $product,
+        ], 200);
+    }
+
 
     public function destroyProduct($id)
     {
-        $product = Product::find($id);
+        $product = Product::findOrFail($id); // Use findOrFail
 
-        if (!$product) {
-            return response()->json(['message' => 'Product not found'], 404);
-        }
-
-        // Delete image from storage
-        if ($product->image && Storage::disk('public')->exists($product->image)) {
+        if ($product->image) {
             Storage::disk('public')->delete($product->image);
         }
 
@@ -156,7 +138,6 @@ class InventoryManagementController extends Controller
     {
         $products = Product::with('category')->get();
 
-        // Append image URL
         $products->transform(function ($product) {
             $product->image_url = $product->image ? asset('storage/' . $product->image) : null;
             return $product;
@@ -170,42 +151,42 @@ class InventoryManagementController extends Controller
 
     public function showByName($name)
     {
-            $products = Product::where('name', 'like', '%' . $name . '%')->get();
+        $products = Product::with('category')->where('name', 'like', '%' . $name . '%')->get();
 
-            if ($products->isEmpty()) {
-                return response()->json(['message' => 'No products found with that name'], 404);
-            }
+        if ($products->isEmpty()) {
+            return response()->json(['message' => 'No products found with that name'], 404);
+        }
 
-            // Add image URLs
-            $products->transform(function ($product) {
-                $product->image_url = $product->image ? asset('storage/' . $product->image) : null;
-                return $product;
-            });
+        $products->transform(function ($product) {
+            $product->image_url = $product->image ? asset('storage/' . $product->image) : null;
+            return $product;
+        });
 
-            return response()->json([
-                'message' => 'Products retrieved successfully',
-                'products' => $products
-            ], 200);
+        return response()->json([
+            'message' => 'Products retrieved successfully',
+            'products' => $products
+        ], 200);
     }
 
-        public function productsByCategory($categoryId)
+    public function productsByCategory($categoryId)
     {
         $category = Category::with('products')->findOrFail($categoryId);
 
+        $category->products->transform(function ($product) {
+            $product->image_url = $product->image ? asset('storage/' . $product->image) : null;
+            return $product;
+        });
+
         return response()->json([
-            'category' => $category->category_name,
+            'category' => $category->name, // Fixed to use 'name'
             'products' => $category->products,
-        ]);
+        ], 200);
     }
-
-
-    //filter producs
 
     public function filterProducts(Request $request)
     {
-        $query = Product::query();
+        $query = Product::with('category');
 
-        // Optional Filters
         if ($request->has('category_id')) {
             $query->where('category_id', $request->category_id);
         }
@@ -218,17 +199,73 @@ class InventoryManagementController extends Controller
             $query->where('status', $request->status);
         }
 
-        // Sorting
-        $sortField = $request->get('sort_by', 'name'); // default to 'name'
-        $sortOrder = $request->get('order', 'asc');    // default to 'asc'
+        $sortField = $request->get('sort_by', 'name');
+        $sortOrder = $request->get('order', 'asc');
 
         if (in_array($sortField, ['name', 'price', 'id']) && in_array($sortOrder, ['asc', 'desc'])) {
             $query->orderBy($sortField, $sortOrder);
         }
 
-        $products =$query->paginate(10);
+        $products = $query->paginate(10);
 
-        return response()->json($products);
+        $products->getCollection()->transform(function ($product) {
+            $product->image_url = $product->image ? asset('storage/' . $product->image) : null;
+            return $product;
+        });
+
+        return response()->json($products, 200);
     }
 
+    public function decrementStock(Request $request)
+    {
+        $request->validate(['barcode' => 'required|string']);
+
+        try {
+            $result = DB::transaction(function () use ($request) {
+                $product = Product::where('barcode', $request->barcode)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (!$product) {
+                    return [
+                        'success' => false,
+                        'message' => 'Product not found. Please check the barcode.'
+                    ];
+                }
+
+                if ($product->status !== 'active') {
+                    return [
+                        'success' => false,
+                        'message' => "Product '{$product->name}' is discontinued."
+                    ];
+                }
+
+                if ($product->stock_quantity <= 0) {
+                    return [
+                        'success' => false,
+                        'message' => "Product '{$product->name}' is out of stock."
+                    ];
+                }
+
+                // decrement stock
+                $product->decrement('stock_quantity', 1);
+
+                return [
+                    'success' => true,
+                    'message' => "Stock decremented successfully for '{$product->name}'.",
+                    'product' => [
+                        'name' => $product->name,
+                        'remaining_stock' => $product->stock_quantity,
+                    ],
+                ];
+            });
+
+            return response()->json($result);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Server error: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
 }

@@ -17,26 +17,41 @@ class MemberFactory extends Factory
      */
     public function definition()
     {
-        return [
-            'user_id' => User::factory(),
-            'member_number' => 'MEM-' . str_pad(fake()->unique()->numberBetween(1, 9999), 4, '0', STR_PAD_LEFT),
-            'full_name' => fake()->name(),
-            'phone_number' => fake()->phoneNumber(),
-            'street_address' => fake()->streetAddress(),
-            'city' => fake()->city(),
-            'province' => fake()->state(),
-            'postal_code' => fake()->postcode(),
-            'tin_number' => fake()->numerify('###-###-###-###'),
-            'date_of_birth' => fake()->dateTimeBetween('-60 years', '-18 years'),
-            'place_of_birth' => fake()->city(),
-            'age' => fake()->numberBetween(18, 65),
-            'dependents' => fake()->numberBetween(0, 5),
-            'employer' => fake()->company(),
-            'position' => fake()->jobTitle(),
-            'monthly_income' => fake()->numberBetween(15000, 100000),
-            'other_income' => fake()->numberBetween(0, 50000),
-            'monthly_disposable_income_range' => fake()->randomElement(['0-5000', '5001-10000', '10001-20000', '20001+']),
-            'status' => fake()->randomElement(['active', 'inactive', 'suspended']),
-        ];
+    return [
+    'member_number' => strtoupper($this->faker->unique()->bothify('MBR-####')),
+    'user_id' => User::factory(), // Creates a user if none exists
+    'full_name' => $this->faker->name(),
+    'phone_number' => $this->faker->numerify('09#########'),
+    'address' => $this->faker->streetAddress(), // merged with city/province
+    'date_of_birth' => $this->faker->date('Y-m-d', '-18 years'),
+    'place_of_birth' => $this->faker->city(),
+    'age' => $this->faker->numberBetween(18, 65),
+    'civil_status' => $this->faker->randomElement(['single', 'married', 'widowed', 'separated']),
+    'religion' => $this->faker->randomElement(['Catholic', 'Christian', 'Muslim', 'Other']),
+    'tin_number' => $this->faker->numerify('#########'),
+    'employer' => $this->faker->company(),
+    'position' => $this->faker->jobTitle(),
+    'monthly_income' => $this->faker->randomFloat(2, 5000, 50000),
+    'other_income' => $this->faker->word(),
+    'share_capital' => 20.00,
+    'fixed_deposit' => $this->faker->randomFloat(2, 0, 10000),
+    'seminar_date' => $this->faker->date('Y-m-d'),
+    'venue' => $this->faker->company() . ' Hall',
+    'status' => $this->faker->randomElement(['pending', 'approved', 'rejected']),
+
+    'spouse_name' => $this->faker->name(),
+    'spouse_employer' => $this->faker->company(),
+    'spouse_monthly_income' => $this->faker->randomFloat(2, 5000, 50000),
+    'spouse_birth_day' => $this->faker->date('Y-m-d', '-18 years'),
+    'number_of_children' => $this->faker->numberBetween(0, 5),
+    
+    // File fields (stored as fake paths for testing)
+    'brgy_clearance' => $this->faker->optional()->filePath(),
+    'birth_cert' => $this->faker->optional()->filePath(),
+    'certificate_of_employment' => $this->faker->optional()->filePath(),
+    'applicant_photo' => $this->faker->optional()->imageUrl(),
+    'valid_id_front' => $this->faker->optional()->filePath(),
+    'valid_id_back' => $this->faker->optional()->filePath(),
+    ];
     }
 }

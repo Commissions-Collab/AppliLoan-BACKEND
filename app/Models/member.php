@@ -14,31 +14,46 @@ class Member extends Model
     use HasFactory;
 
     protected $fillable = [
-        'user_id',
         'member_number',
+        'user_id',
         'full_name',
         'phone_number',
-        'street_address',
-        'city',
-        'province',
-        'postal_code',
-        'tin_number',
+        'address',
         'date_of_birth',
         'place_of_birth',
         'age',
-        'dependents',
+        'civil_status',
+        'religion',
+        'tin_number',
+        'status',
         'employer',
         'position',
         'monthly_income',
         'other_income',
-        'monthly_disposable_income_range',
-        'status'
+        'share_capital',
+        'fixed_deposit',
+        'seminar_date',
+        'venue',
+        'brgy_clearance',
+        'birth_cert',
+        'certificate_of_employment',
+        'applicant_photo',
+        'valid_id_front',
+        'valid_id_back',
+        'number_of_children',
+        'spouse_name',
+        'spouse_employer',
+        'spouse_monthly_income',
+        'spouse_birth_day',
     ];
 
     protected $casts = [
         'date_of_birth' => 'date',
+        'is_member' => 'boolean',
         'monthly_income' => 'decimal:2',
-        'other_income' => 'decimal:2',
+        'share_capital' => 'decimal:2',
+        'fixed_deposit' => 'decimal:2',
+        'spouse_monthly_income' => 'decimal:2',
     ];
 
     // Relationships
@@ -49,17 +64,24 @@ class Member extends Model
 
     public function account(): HasOne
     {
-        return $this->hasOne(MemberAccount::class);
+        return $this->hasOne(MemberAccount::class, 'member_id');
     }
 
     public function loanApplications(): HasMany
     {
-        return $this->hasMany(LoanApplication::class);
+        return $this->hasMany(LoanApplication::class, 'user_id', 'user_id');
     }
 
     public function loans(): HasManyThrough
     {
-        return $this->hasManyThrough(Loan::class, LoanApplication::class);
+        return $this->hasManyThrough(
+            Loan::class,
+            LoanApplication::class,
+            'user_id', // Foreign key on loan_applications table
+            'loan_application_id', // Foreign key on loans table
+            'user_id', // Local key on members table
+            'id' // Local key on loan_applications table
+        );
     }
 
     public function memberLogins(): HasMany
@@ -75,5 +97,9 @@ class Member extends Model
     public function getTotalIncomeAttribute()
     {
         return $this->monthly_income + $this->other_income;
+    }
+    public function userId(): BelongsTo
+    {
+        return $this->belongsTo(Request::class, 'user_id');
     }
 }

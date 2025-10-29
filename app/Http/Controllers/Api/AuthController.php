@@ -5,13 +5,20 @@ namespace App\Http\Controllers\api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\LoginRequests;
 use App\Http\Requests\RegisterRequests;
+use App\Http\Requests\VerifyOtpRequest;
+use App\Http\Requests\ForgotPasswordRequest;
+use App\Http\Requests\ResetPasswordRequest;
+use App\Mail\VerificationCodeMail;
 use App\Models\member;
 use App\Models\MemberLogin;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth as Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Validator;
 
 
 class AuthController extends Controller
@@ -29,24 +36,19 @@ class AuthController extends Controller
                 'password' => Hash::make($data['password']),
                 'role' => $data['role'],
                 'is_verified' => false,
+                'is_member' => false,
             ]);
 
-            // Create member only if role is 'member'
-            if ($data['role'] === 'member') {
-                member::create([
-                    'user_id' => $user->id,
-                    'full_name' => $data['full_name'],
-                    'email' => $data['email'],
-                    'phone_number' => $data['phone_number'],
-                    'address' => $data['address'],
-                ]);
-            }
+            // Generate OTP and send email
+            $otp = $user->generateOtp();
+            Mail::to($user->email)->send(new VerificationCodeMail($otp, 'signup'));
 
             DB::commit();
 
             return response()->json([
-                'message' => 'User registered successfully',
-                'user' => $user,
+                'message' => 'User registered successfully. Please check your email for a verification code.',
+                'user' => $user->only(['id', 'email', 'role']),
+                'requires_verification' => true,
             ], 201);
         } catch (\Exception $e) {
             DB::rollBack();
@@ -56,17 +58,134 @@ class AuthController extends Controller
                 'error' => $e->getMessage()
             ], 500);
         }
+    
+    }
+
+    public function verifyEmail(VerifyOtpRequest $request)
+    {
+        $user = User::where('email', $request->email)->first();
+
+        if (!$user->verifyOtp($request->otp)) {
+            return response()->json([
+                'message' => 'Invalid or expired verification code.',
+                'success' => false,
+            ], 400);
+        }
+
+        if ($request->type === 'signup') {
+            $user->email_verified_at = Carbon::now();
+            $user->is_verified = true;
+            $user->clearOtp();
+
+            return response()->json([
+                'message' => 'Email verified successfully. You can now sign in.',
+                'success' => true,
+                'verified' => true,
+            ], 200);
+        }
+
+        if ($request->type === 'forgot-password') {
+            // Don't clear OTP yet, will be cleared after password reset
+            return response()->json([
+                'message' => 'Verification code confirmed. You can now reset your password.',
+                'success' => true,
+                'verified' => true,
+                'reset_token' => $request->otp, // Use OTP as temporary reset token
+            ], 200);
+        }
+
+        return response()->json([
+            'message' => 'Invalid verification type.',
+            'success' => false,
+        ], 400);
+    }
+
+    public function resendVerificationCode(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'email' => 'required|email|exists:users,email',
+            'type' => 'required|in:signup,forgot-password',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+                'success' => false,
+            ], 422);
+        }
+
+        $user = User::where('email', $request->email)->first();
+
+        if ($request->type === 'signup' && $user->is_verified) {
+            return response()->json([
+                'message' => 'Email is already verified.',
+                'success' => false,
+            ], 400);
+        }
+
+        $otp = $user->generateOtp();
+        Mail::to($user->email)->send(new VerificationCodeMail($otp, $request->type));
+
+        return response()->json([
+            'message' => 'A new verification code has been sent to your email.',
+            'success' => true,
+        ], 200);
+    }
+
+    public function resetPassword(ResetPasswordRequest $request)
+    {
+        $user = User::where('email', $request->email)->first();
+
+        if (!$user->verifyOtp($request->otp)) {
+            return response()->json([
+                'message' => 'Invalid or expired verification code.',
+                'success' => false,
+            ], 400);
+        }
+
+        $user->password = Hash::make($request->password);
+        $user->clearOtp();
+
+        return response()->json([
+            'message' => 'Password reset successfully. You can now sign in with your new password.',
+            'success' => true,
+        ], 200);
+    }
+
+    public function forgotPassword(ForgotPasswordRequest $request)
+    {
+        $user = User::where('email', $request->email)->first();
+        $otp = $user->generateOtp();
+
+        Mail::to($user->email)->send(new VerificationCodeMail($otp, 'forgot-password'));
+
+        return response()->json([
+            'message' => 'A verification code has been sent to your email for password reset.',
+            'success' => true,
+        ], 200);
     }
 
     public function login(LoginRequests $request)
     {
         if (!Auth::attempt($request->only('email', 'password'))) {
             return response()->json([
-                'message' => 'Invalid credentials'
+                'message' => 'Invalid credentials',
+                'success' => false,
             ], 401);
         }
 
         $user = User::where('email', $request->input('email'))->first();
+
+        // Check if user is verified for members
+        if ($user->role->value === 'member' && !$user->is_verified) {
+            return response()->json([
+                'message' => 'Please verify your email before signing in',
+                'success' => false,
+                'requires_verification' => true,
+            ], 403);
+        }
+
         $token = $user->createToken('auth_token')->plainTextToken;
 
         if ($user->isMember() && $user->member) {
@@ -80,7 +199,8 @@ class AuthController extends Controller
             'message' => 'Login successful',
             'user' => $user,
             'token' => $token,
-        ]);
+            'success' => true,
+        ], 200);
     }
 
     /**
@@ -100,5 +220,42 @@ class AuthController extends Controller
         return response()->json([
             'message' => 'Logout successful',
         ]);
+    }
+
+
+
+    // Change Password for Authenticated User
+
+    public function userChangePassword(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'current_password' => 'required|string',
+            'new_password' => 'required|string|min:8|confirmed',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+                'success' => false,
+            ], 422);
+        }
+
+        $user = $request->user();
+
+        if (!Hash::check($request->input('current_password'), $user->password)) {
+            return response()->json([
+                'message' => 'Current password is incorrect',
+                'success' => false,
+            ], 400);
+        }
+
+        $user->password = Hash::make($request->input('new_password'));
+        $user->save();
+
+        return response()->json([
+            'message' => 'Password changed successfully',
+            'success' => true,
+        ], 200);
     }
 }

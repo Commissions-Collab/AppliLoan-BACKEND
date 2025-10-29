@@ -20,6 +20,12 @@ class AppliancesController extends Controller
                 ->latest()
                 ->paginate(25);
 
+            // Transform products to include image URLs
+            $products->getCollection()->transform(function ($product) {
+                $product->image_url = $product->image ? asset('storage/' . $product->image) : null;
+                return $product;
+            });
+
             return response()->json([
                 'success' => true,
                 'products' => $products
@@ -36,7 +42,8 @@ class AppliancesController extends Controller
     public function passApplication(Request $request)
     {
         try {
-            $member = Auth::user()->member;
+            $user = Auth::user();
+            $member = $user->member;
 
             if (!$member) {
                 return response()->json([
@@ -46,7 +53,7 @@ class AppliancesController extends Controller
             }
 
             $query = LoanApplication::with(['product:id,name'])
-                ->where('member_id', $member->id);
+                ->where('user_id', $user->id);
 
             if ($request->filled('status')) {
                 $query->where('status', $request->status);

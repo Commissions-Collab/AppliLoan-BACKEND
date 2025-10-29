@@ -3,27 +3,382 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Loan;
+use App\Models\LoanSchedule;
 use App\Models\LoanPayment;
+use App\Models\Product;
+use App\Models\Member;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class LoanPaymentController extends Controller
 {
     public function getLoanPayment()
     {
-        $payments = LoanPayment::with([
-            'loan:id,loan_application_id,loan_number',
-            'loan.application:id,member_id,product_id',
-            'loan.application.product:id,name',
-            'loan.application.member:id,full_name',
-            'receivedBy:id,email',
-            'schedule:id,status'
+        // Get all active loans with their payment information
+        $loans = Loan::with([
+            'application:id,user_id,product_id,user_name',
+            'application.user:id,email',
+            'application.product:id,name',
+            'payments:id,loan_id,amount_paid,payment_date',
+            'schedules:id,loan_id,due_date,status'
         ])
-            ->select(['loan_id', 'schedule_id', 'payment_date', 'amount_paid', 'remaining_balance', 'payment_method', 'receipt_number', 'received_by', 'notes'])
-            ->latest()
-            ->paginate(25);
+        ->where('status', 'active')
+        ->latest()
+        ->paginate(25);
+
+        // Ensure schedules exist for any active loans missing them (backfill for previously-approved loans)
+        $loans->getCollection()->each(function ($loan) {
+            if ($loan->schedules->count() === 0) {
+                $this->ensureLoanSchedules($loan);
+                // Reload schedules for accurate next due date
+                $loan->load('schedules');
+            }
+        });
+
+        // Format the data for frontend consumption
+        $formattedLoans = $loans->getCollection()->map(function ($loan) {
+            // Get member info if exists
+            $member = Member::where('user_id', $loan->application->user_id)->first();
+            
+            // Calculate payment status
+            $nextDueDate = $loan->schedules()
+                ->where('status', 'unpaid')
+                ->orderBy('due_date')
+                ->first()?->due_date;
+            
+            // Only approved payments count towards balances/progress
+            $totalApprovedPaid = $loan->payments()
+                ->where('status', 'approved')
+                ->sum('amount_paid');
+            $remainingBalance = $loan->principal_amount - $totalApprovedPaid;
+            
+            // Completed installments = schedules marked as paid
+            $paymentsCompleted = $loan->schedules()->where('status', 'paid')->count();
+            
+            // Check if down payment is approved (counts as first month)
+            $hasApprovedDownPayment = $loan->payments()
+                ->whereNull('schedule_id')
+                ->where('status', 'approved')
+                ->exists();
+            
+            // If down payment is approved, add 1 to payments completed
+            if ($hasApprovedDownPayment) {
+                $paymentsCompleted += 1;
+            }
+            
+            // Determine payment status
+            $paymentStatus = 'Current';
+            if ($nextDueDate) {
+                $dueDate = Carbon::parse($nextDueDate);
+                $today = Carbon::today();
+                
+                if ($dueDate->isPast()) {
+                    $paymentStatus = 'Overdue';
+                } elseif ($dueDate->diffInDays($today) <= 7) {
+                    $paymentStatus = 'Due Soon';
+                }
+            }
+            
+            // If the member just paid today (approved payment), consider status Current instead of Due Soon
+            $lastApprovedPayment = $loan->payments()
+                ->where('status', 'approved')
+                ->orderByDesc('payment_date')
+                ->first();
+            if ($lastApprovedPayment && Carbon::parse($lastApprovedPayment->payment_date)->isToday()) {
+                $paymentStatus = 'Current';
+            }
+
+            if ($remainingBalance <= 0) {
+                $paymentStatus = 'Completed';
+            }
+
+            return [
+                'id' => $loan->id,
+                'loan_id' => $loan->id,
+                'loan_number' => $loan->loan_number,
+                'member_name' => $member?->full_name ?? $loan->application->user_name ?? $loan->application->user?->email,
+                'product_name' => $loan->application->product?->name,
+                'principal_amount' => $loan->principal_amount,
+                'monthly_payment' => $loan->monthly_payment,
+                'amount_paid' => $totalApprovedPaid,
+                'remaining_balance' => $remainingBalance,
+                'next_due_date' => $nextDueDate,
+                'status' => $paymentStatus,
+                'payments_completed' => $paymentsCompleted,
+                'total_payments' => $loan->term_months,
+                'payment_date' => $loan->payments->last()?->payment_date,
+                'approval_date' => $loan->approval_date,
+                'maturity_date' => $loan->maturity_date,
+            ];
+        });
+
+        $loans->setCollection($formattedLoans);
 
         return response()->json([
-            'payments' => $payments
+            'payments' => $loans
         ]);
     }
+
+    /**
+     * Create basic monthly schedules if missing, based on release_date or approval_date.
+     * Down payment counts as first month, so we create schedules for (term_months - 1)
+     */
+    protected function ensureLoanSchedules(Loan $loan): void
+    {
+        $totalMonths = (int) $loan->term_months;
+        if ($totalMonths <= 0) return;
+
+        // Use release_date if available, otherwise approval_date, otherwise today
+        $startDate = $loan->release_date
+            ? Carbon::parse($loan->release_date)
+            : ($loan->approval_date ? Carbon::parse($loan->approval_date) : Carbon::today());
+
+        // Down payment counts as first month, so create schedules for remaining months
+        $remainingMonths = $totalMonths - 1;
+        
+        if ($remainingMonths <= 0) {
+            return; // Only down payment needed
+        }
+
+        $principal = (float) $loan->principal_amount;
+        
+        // Down payment = 25.5% of principal
+        $downPayment = round($principal * 0.255, 2);
+        
+        // Remaining principal after down payment
+        $remainingPrincipal = $principal - $downPayment;
+        
+        // Monthly principal payment (remaining principal / remaining months)
+        $monthlyPrincipal = round($remainingPrincipal / $remainingMonths, 2);
+        
+        // Monthly interest (3% of original principal)
+        $monthlyInterest = round($principal * 0.03, 2);
+        
+        $monthlyAmount = $monthlyPrincipal + $monthlyInterest;
+
+        for ($i = 1; $i <= $remainingMonths; $i++) {
+            $dueDate = $startDate->copy()->addMonths($i);
+
+            LoanSchedule::create([
+                'loan_id' => $loan->id,
+                'due_date' => $dueDate,
+                'amount_due' => $monthlyAmount,
+                'principal_amount' => $monthlyPrincipal,
+                'interest_amount' => $monthlyInterest,
+                'status' => 'unpaid',
+            ]);
+        }
+    }
+
+    public function getLoanPaymentDetails($loanId)
+    {
+        $loan = Loan::with([
+            'application:id,user_id,product_id,user_name',
+            'application.user:id,email',
+            'application.product:id,name',
+            'payments' => function ($query) {
+                $query->orderBy('payment_date', 'desc');
+            },
+            'schedules' => function ($query) {
+                $query->orderBy('due_date', 'asc');
+            }
+        ])->findOrFail($loanId);
+
+        // Get member info if exists
+        $member = Member::where('user_id', $loan->application->user_id)->first();
+
+        return response()->json([
+            'loan' => $loan,
+            'member' => $member,
+        ]);
+    }
+
+    public function updatePaymentStatus(Request $request, $paymentId)
+    {
+        $request->validate([
+            'status' => 'required|in:pending,approved,rejected',
+        ]);
+
+        $payment = LoanPayment::with(['loan.application.product', 'schedule'])->findOrFail($paymentId);
+
+        // Wrap in transaction to ensure stock decrement and status update are atomic
+        DB::beginTransaction();
+        try {
+            $newStatus = $request->input('status');
+
+            if ($newStatus === 'approved') {
+                // If this is a down payment (no schedule_id), and it's the first approved down payment, decrement stock
+                if (is_null($payment->schedule_id)) {
+                    $hasApprovedDownpayment = LoanPayment::where('loan_id', $payment->loan_id)
+                        ->whereNull('schedule_id')
+                        ->where('status', 'approved')
+                        ->exists();
+
+                    if (!$hasApprovedDownpayment) {
+                        $application = optional($payment->loan)->application;
+                        $productId = optional($application)->product_id;
+                        if ($productId) {
+                            $product = Product::whereKey($productId)->lockForUpdate()->first();
+                            if (!$product || (int) $product->stock_quantity <= 0) {
+                                throw ValidationException::withMessages([
+                                    'stock' => 'Insufficient stock to approve down payment',
+                                ]);
+                            }
+                            $product->decrement('stock_quantity');
+                        }
+                    }
+                } else {
+                    // If this is a scheduled payment, mark the schedule as paid
+                    if ($payment->schedule) {
+                        $payment->schedule->status = 'paid';
+                        $payment->schedule->save();
+                    }
+                }
+            }
+
+            $payment->status = $newStatus;
+            $payment->save();
+
+            // Send notification email to borrower when payment is approved or rejected
+            if ($newStatus === 'approved' || $newStatus === 'rejected') {
+                try {
+                    $user = optional($payment->loan->application->user);
+                    if ($user && $user->email) {
+                        if ($newStatus === 'approved') {
+                            \Illuminate\Support\Facades\Mail::to($user->email)->send(
+                                new \App\Mail\PaymentApprovedMail($user, $payment, $payment->loan)
+                            );
+                        } else {
+                            // Rejected
+                            $reason = $payment->notes ?? null;
+                            \Illuminate\Support\Facades\Mail::to($user->email)->send(
+                                new \App\Mail\PaymentRejectedMail($user, $payment, $reason)
+                            );
+                        }
+                    }
+                } catch (\Throwable $e) {
+                    // Log but do not fail the operation
+                    \Illuminate\Support\Facades\Log::error('Failed to send payment email (approved/rejected)', [
+                        'payment_id' => $payment->id,
+                        'new_status' => $newStatus,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Payment status updated successfully',
+                'payment' => $payment,
+            ]);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            $status = $e instanceof ValidationException ? 422 : 500;
+            return response()->json([
+                'message' => 'Failed to update payment status',
+                'error' => $e->getMessage(),
+            ], $status);
+        }
+    }
+    
+    /**
+     * Upload QR code image for payments
+     */
+    public function uploadQRCode(Request $request)
+    {
+        $request->validate([
+            'qr_code_image' => 'required|image|mimes:jpeg,png,jpg,gif|max:5120', // 5MB max
+        ]);
+
+        try {
+            if ($request->hasFile('qr_code_image')) {
+                $file = $request->file('qr_code_image');
+                $filename = 'qr_code_' . time() . '.' . $file->getClientOriginalExtension();
+                $path = $file->storeAs('payment_qr_codes', $filename, 'public');
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'QR code uploaded successfully',
+                    'qr_code_path' => $path,
+                    'qr_code_url' => asset('storage/' . $path),
+                ]);
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => 'No file uploaded',
+            ], 400);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to upload QR code',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Get current QR code
+     */
+    public function getQRCode()
+    {
+        try {
+            // Get the most recently uploaded QR code from any payment record
+            $latestQRCode = LoanPayment::whereNotNull('payment_qr_code')
+                ->orderBy('updated_at', 'desc')
+                ->first();
+
+            if ($latestQRCode && $latestQRCode->payment_qr_code) {
+                return response()->json([
+                    'success' => true,
+                    'qr_code_path' => $latestQRCode->payment_qr_code,
+                    'qr_code_url' => asset('storage/' . $latestQRCode->payment_qr_code),
+                ]);
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => 'No QR code found',
+            ], 404);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to retrieve QR code',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Update QR code for all future payments
+     */
+    public function updateQRCode(Request $request)
+    {
+        $request->validate([
+            'qr_code_path' => 'required|string',
+        ]);
+
+        try {
+            // Update all pending payments to use the new QR code
+            LoanPayment::where('status', 'pending')
+                ->update(['payment_qr_code' => $request->qr_code_path]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'QR code updated for all pending payments',
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update QR code',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+
 }

@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use Carbon\Carbon;
 
 class User extends Authenticatable
 {
@@ -27,7 +28,11 @@ class User extends Authenticatable
         'password',
         'role',
         'otp',
-        'is_verified'
+        'is_verified',
+        'is_member',
+        'verification_code',
+        'verification_code_expires_at',
+        'email_verified_at',
     ];
 
     /**
@@ -38,6 +43,8 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+        'otp',
+        'verification_code',
     ];
 
     /**
@@ -52,6 +59,7 @@ class User extends Authenticatable
             'password' => 'hashed',
             'role' => UserRole::class,
             'is_verified' => 'boolean',
+            'verification_code_expires_at' => 'datetime',
         ];
     }
 
@@ -68,6 +76,59 @@ class User extends Authenticatable
     public function isMember(): bool
     {
         return $this->role === UserRole::MEMBER;
+    }
+
+    /**
+     * Generate a new OTP for the user
+     */
+    public function generateOtp(): string
+    {
+        $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        $this->update([
+            'verification_code' => $otp,
+            'verification_code_expires_at' => Carbon::now()->addMinutes(10),
+        ]);
+        
+        return $otp;
+    }
+
+    /**
+     * Verify the provided OTP
+     */
+    public function verifyOtp(string $inputOtp): bool
+    {
+        if (!$this->verification_code || !$this->verification_code_expires_at) {
+            return false;
+        }
+
+        if (Carbon::now()->gt($this->verification_code_expires_at)) {
+            return false; // OTP expired
+        }
+
+        if ($this->verification_code !== $inputOtp) {
+            return false; // Invalid OTP
+        }
+
+        return true;
+    }
+
+    /**
+     * Clear the OTP from the user record
+     */
+    public function clearOtp(): void
+    {
+        $this->update([
+            'verification_code' => null,
+            'verification_code_expires_at' => null,
+        ]);
+    }
+
+    /**
+     * Check if user is a verified member
+     */
+    public function isVerifiedMember(): bool
+    {
+        return $this->role === UserRole::MEMBER && $this->is_verified;
     }
 
     public function member(): HasOne
