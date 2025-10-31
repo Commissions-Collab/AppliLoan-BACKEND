@@ -19,6 +19,7 @@ use App\Http\Controllers\Member\LoanApplicationController;
 use App\Http\Controllers\Member\MembershipApplyController;
 use App\Http\Controllers\Member\MemberProfileController;
 use App\Http\Controllers\Member\PaymentController;
+use App\Http\Controllers\Clerk\ClerkDashboardController;
 use App\Http\Controllers\Clerk\LoanPaymentsController;
 
 Route::get('/', function () {
@@ -128,9 +129,7 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     Route::middleware('role:loan_clerk')->prefix('/loan_clerk')->group(function () {
-        Route::get('/dashboard', function () {
-            return response()->json(['message' => 'Loan Clerk Dashboard']);
-        });
+        Route::get('/dashboard', [ClerkDashboardController::class, 'dashboardData']);
 
 
         // Membership requests management for loan clerks
