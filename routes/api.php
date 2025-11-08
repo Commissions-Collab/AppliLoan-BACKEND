@@ -19,6 +19,7 @@ use App\Http\Controllers\Member\LoanApplicationController;
 use App\Http\Controllers\Member\MembershipApplyController;
 use App\Http\Controllers\Member\MemberProfileController;
 use App\Http\Controllers\Member\PaymentController;
+use App\Http\Controllers\Clerk\ClerkDashboardController;
 use App\Http\Controllers\Clerk\LoanPaymentsController;
 
 Route::get('/', function () {
@@ -67,7 +68,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/products/name/{name}', [InventoryManagementController::class, 'showByName']);
         Route::get('/categories/{id}/products', [InventoryManagementController::class, 'productsByCategory']);
         Route::get('/products/filter', [InventoryManagementController::class, 'filterProducts']);
-        Route::post('/products/decrement', [InventoryManagementController::class, 'decrementStock']);
 
         Route::post('/requests', [MembershipApprovalController::class, 'store']);
         Route::get('/requests/pending', [MembershipApprovalController::class, 'getPendingRequests']);
@@ -127,10 +127,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/members-management/{userId}', [MemberManagementController::class, 'deleteMember']);
     });
 
+    // Common routes for authenticated users (clerks and admins)
+    Route::post('/decrement-stock', [InventoryManagementController::class, 'decrementStock']);
+
     Route::middleware('role:loan_clerk')->prefix('/loan_clerk')->group(function () {
-        Route::get('/dashboard', function () {
-            return response()->json(['message' => 'Loan Clerk Dashboard']);
-        });
+        Route::get('/dashboard', [ClerkDashboardController::class, 'dashboardData']);
 
 
         // Membership requests management for loan clerks
@@ -185,7 +186,6 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::delete('/products/{id}', 'destroyProduct');
             Route::get('/products', 'indexProduct');
             Route::get('/products/barcode/{barcode}', 'showByBarcode');  // For scanning
-            Route::post('/products/decrement', 'decrementStock'); // atomic decrement via barcode
             Route::patch('/products/{id}/stock', 'updateStock');  // Quick stock update via scan
             Route::get('/products/filter', 'filterProducts');
         });

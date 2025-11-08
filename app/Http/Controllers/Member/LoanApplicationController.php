@@ -53,7 +53,7 @@ class LoanApplicationController extends Controller
             'loan_type_id' => 'required|exists:loan_types,id',
             'product_id' => 'nullable|exists:products,id',
             'user_name' => 'nullable|string|max:255',
-            'applied_amount' => 'required|numeric|min:1000',
+            'applied_amount' => 'required|numeric|min:500',
             'term_months' => 'required|integer|min:1',
 
             // personal details
