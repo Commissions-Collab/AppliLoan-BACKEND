@@ -118,8 +118,13 @@ class AnalyticsController extends Controller
 
         $year = $request->input('year', date('Y'));
         $quarter = $request->input('quarter'); // Null if not present
+        $refresh = $request->input('refresh', false);
         $cacheKey = "dividend_analytics_{$year}" . ($quarter ? "_q{$quarter}" : '');
 
+        if ($refresh) {
+        Cache::forget($cacheKey);
+    }
+    
         $data = Cache::remember($cacheKey, 3600, function () use ($year, $quarter) {
             // Get the entire distribution payload once.
             $distributionData = DividendAnalyticsHelper::getDynamicDividendDistribution($year, $quarter);
