@@ -33,7 +33,7 @@ class SalesAnalyticsHelper
         // Count actual months that have passed in the year
         $currentDate = Carbon::now();
         $yearStart = Carbon::create($year, 1, 1);
-        
+
         if ($year == $currentDate->year) {
             // For current year, count months up to current month
             $monthsToCount = $currentDate->month;
@@ -49,12 +49,12 @@ class SalesAnalyticsHelper
 
     public static function getTargetAchievement($year)
     {
-        $annualTarget = env('TARGET_SALES_ACHIEVEMENT'); 
+        $annualTarget = env('TARGET_SALES_ACHIEVEMENT');
 
         $currentYearRevenue = LoanPayment::whereYear('payment_date', $year)
             ->sum('amount_paid');
 
-        return $annualTarget > 0 
+        return $annualTarget > 0
             ? round(($currentYearRevenue / $annualTarget) * 100, 2)
             : 0;
     }
@@ -116,30 +116,82 @@ class SalesAnalyticsHelper
     public static function debugSalesData($year)
     {
         $results = [];
-        
+
         // Check payment data
         $results['total_payments'] = LoanPayment::count();
         $results['payments_this_year'] = LoanPayment::whereYear('payment_date', $year)->count();
         $results['payments_last_year'] = LoanPayment::whereYear('payment_date', $year - 1)->count();
-        
+
         // Check application data
         $results['total_applications'] = LoanApplication::count();
         $results['approved_this_year'] = LoanApplication::where('status', 'approved')
             ->whereYear('created_at', $year)->count();
-            
+
         // Sample data
         $results['sample_payments'] = LoanPayment::whereYear('payment_date', $year)
             ->select('id', 'amount_paid', 'payment_date')
             ->limit(5)
             ->get();
-            
+
         $results['sample_applications'] = LoanApplication::where('status', 'approved')
             ->whereYear('created_at', $year)
             ->with('product.category')
             ->select('id', 'applied_amount', 'status', 'created_at', 'product_id')
             ->limit(5)
             ->get();
-            
+
         return $results;
+    }
+
+    public static function getWeeklySales()
+    {
+        $startOfWeek = Carbon::now()->startOfWeek(); // Monday
+        $endOfWeek = Carbon::now()->endOfWeek();     // Sunday
+
+        return LoanPayment::whereBetween('payment_date', [$startOfWeek, $endOfWeek])
+            ->selectRaw('DATE(payment_date) as date, SUM(amount_paid) as total')
+            ->groupBy('date')
+            ->orderBy('date')
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'date' => Carbon::parse($item->date)->format('M d'),
+                    'total' => floatval($item->total)
+                ];
+            });
+    }
+
+    public static function getYearlySales($year)
+    {
+        $results = [];
+
+        for ($month = 1; $month <= 12; $month++) {
+            $monthlyTotal = LoanPayment::whereYear('payment_date', $year)
+                ->whereMonth('payment_date', $month)
+                ->sum('amount_paid');
+
+            $results[] = [
+                'month' => Carbon::create($year, $month, 1)->format('M'),
+                'total' => floatval($monthlyTotal)
+            ];
+        }
+
+        return $results;
+    }
+
+    public static function getMonthlySales($year, $month)
+    {
+        return LoanPayment::whereYear('payment_date', $year)
+            ->whereMonth('payment_date', $month)
+            ->selectRaw('DATE(payment_date) as date, SUM(amount_paid) as total')
+            ->groupBy('date')
+            ->orderBy('date')
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'date' => Carbon::parse($item->date)->format('M d'),
+                    'total' => floatval($item->total)
+                ];
+            });
     }
 }
