@@ -118,8 +118,13 @@ class AnalyticsController extends Controller
 
         $year = $request->input('year', date('Y'));
         $quarter = $request->input('quarter'); // Null if not present
+        $refresh = $request->input('refresh', false);
         $cacheKey = "dividend_analytics_{$year}" . ($quarter ? "_q{$quarter}" : '');
 
+        if ($refresh) {
+        Cache::forget($cacheKey);
+    }
+    
         $data = Cache::remember($cacheKey, 3600, function () use ($year, $quarter) {
             // Get the entire distribution payload once.
             $distributionData = DividendAnalyticsHelper::getDynamicDividendDistribution($year, $quarter);
@@ -137,9 +142,21 @@ class AnalyticsController extends Controller
             // Derive all other metrics from this single result.
             $totalDividends = collect($distributionData['distribution'])->sum('annual_dividend');
 
-            $totalShare = $distributionData['total_share_capital'];
-            $averageYield = $totalShare > 0 && $distributionData['total_dividend_pool'] > 0 ?
-                ($distributionData['total_dividend_pool'] / $totalShare) * 100 : 0;
+            // Calculate yield based on distribution method
+            $averageYield = 0;
+            $isPaymentBased = $distributionData['distribution_method'] === 'payments';
+            
+            if ($isPaymentBased) {
+                // For payment-based, yield = dividend pool / total payments
+                $totalPaid = $distributionData['total_paid_amount'];
+                $averageYield = $totalPaid > 0 && $distributionData['total_dividend_pool'] > 0 ?
+                    ($distributionData['total_dividend_pool'] / $totalPaid) * 100 : 0;
+            } else {
+                // For share capital-based methods
+                $totalShare = $distributionData['total_share_capital'];
+                $averageYield = $totalShare > 0 && $distributionData['total_dividend_pool'] > 0 ?
+                    ($distributionData['total_dividend_pool'] / $totalShare) * 100 : 0;
+            }
 
             return [
                 'total_dividends_paid' => round($totalDividends, 2),
