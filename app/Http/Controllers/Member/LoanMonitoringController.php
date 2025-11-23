@@ -33,15 +33,15 @@ class LoanMonitoringController extends Controller
                 ->get();
         } else {
             $loans = $member->loans()
-            ->with([
-                'application.product',
-                'schedules' => function ($query) {
-                    $query->orderBy('due_date');
-                },
-                'payments'
-            ])
-            ->orderByDesc('created_at')
-            ->get();
+                ->with([
+                    'application.product',
+                    'schedules' => function ($query) {
+                        $query->orderBy('due_date');
+                    },
+                    'payments'
+                ])
+                ->orderByDesc('created_at')
+                ->get();
         }
 
         // Summary totals should reflect approved payments only
@@ -100,8 +100,8 @@ class LoanMonitoringController extends Controller
                 'id' => $loan->id,
                 'item' => $loan->application->product->name ?? 'N/A',
                 'status' => $status,
-                    // show total loan amount with new calculation
-                    'amount' => '₱' . number_format($totalLoanAmount, 2),
+                // show total loan amount with new calculation
+                'amount' => '₱' . number_format($totalLoanAmount, 2),
                 'paid' => '₱' . number_format($approvedPaid, 2),
                 'progress' => $progress,
                 'next_billing' => $nextBilling,
@@ -318,29 +318,29 @@ class LoanMonitoringController extends Controller
     {
         $principal = isset($loan->principal_amount) ? floatval($loan->principal_amount) : 0.0;
         $totalMonths = isset($loan->term_months) ? max(1, intval($loan->term_months)) : 1;
-        
-        // Down payment = 25.5% of principal (23% + 2.5% service fee)
-        $downPayment = round($principal * 0.255, 2);
-        
+
+        // Down payment = 3% of principal (23% + 2.5% service fee)
+        $downPayment = round($principal * 0.03, 2);
+
         // Remaining principal after down payment
         $remainingPrincipal = $principal - $downPayment;
-        
+
         // Remaining months after down payment (which counts as first month)
         $remainingMonths = max(1, $totalMonths - 1);
-        
+
         // Monthly principal payment (remaining principal / remaining months)
         $monthlyPrincipal = round($remainingPrincipal / $remainingMonths, 2);
-        
+
         // Monthly interest (3% of original principal per month)
         $monthlyInterest = round($principal * 0.03, 2);
-        
+
         // Total monthly payment
         $monthlyPayment = $monthlyPrincipal + $monthlyInterest;
-        
+
         // Total = down payment + (remaining months * monthly payment)
         return round($downPayment + ($remainingMonths * $monthlyPayment), 2);
     }
-    
+
     /**
      * Calculate monthly payment amount
      * Returns a float (rounded to 2 decimals).
@@ -349,22 +349,22 @@ class LoanMonitoringController extends Controller
     {
         $principal = isset($loan->principal_amount) ? floatval($loan->principal_amount) : 0.0;
         $totalMonths = isset($loan->term_months) ? max(1, intval($loan->term_months)) : 1;
-        
+
         // Down payment = 25.5% of principal
-        $downPayment = round($principal * 0.255, 2);
-        
+        $downPayment = round($principal * 0.03, 2);
+
         // Remaining principal after down payment
         $remainingPrincipal = $principal - $downPayment;
-        
+
         // Remaining months
         $remainingMonths = max(1, $totalMonths - 1);
-        
+
         // Monthly principal payment
         $monthlyPrincipal = round($remainingPrincipal / $remainingMonths, 2);
-        
+
         // Monthly interest (3% of original principal)
         $monthlyInterest = round($principal * 0.03, 2);
-        
+
         return round($monthlyPrincipal + $monthlyInterest, 2);
     }
 
@@ -372,9 +372,9 @@ class LoanMonitoringController extends Controller
     {
         // Dividend calculation logic - typically paid on completed loans
         if ($loan->status === 'closed') {
-            // Simple dividend calculation: 2% of total loan amount
+            // Simple dividend calculation: 5% of total loan amount
             $totalLoanAmount = $this->calculateTotalLoanAmount($loan);
-            return $totalLoanAmount * 0.02;
+            return $totalLoanAmount * 0.05;
         }
 
         return 0;
