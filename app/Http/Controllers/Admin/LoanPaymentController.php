@@ -136,38 +136,28 @@ class LoanPaymentController extends Controller
             ? Carbon::parse($loan->release_date)
             : ($loan->approval_date ? Carbon::parse($loan->approval_date) : Carbon::today());
 
-        // Down payment counts as first month, so create schedules for remaining months
-        $remainingMonths = $totalMonths - 1;
-        
-        if ($remainingMonths <= 0) {
-            return; // Only down payment needed
-        }
-
         $principal = (float) $loan->principal_amount;
         
-        // Down payment = 25.5% of principal
-        $downPayment = round($principal * 0.255, 2);
+        // Simplified calculation: Total Interest = Principal * 0.03 * Months
+        $totalInterest = round($principal * 0.03 * $totalMonths, 2);
+        $totalAmount = $principal + $totalInterest;
         
-        // Remaining principal after down payment
-        $remainingPrincipal = $principal - $downPayment;
+        // Monthly Payment = Total Amount / Months
+        $monthlyAmount = round($totalAmount / $totalMonths, 2);
         
-        // Monthly principal payment (remaining principal / remaining months)
-        $monthlyPrincipal = round($remainingPrincipal / $remainingMonths, 2);
-        
-        // Monthly interest (3% of original principal)
-        $monthlyInterest = round($principal * 0.03, 2);
-        
-        $monthlyAmount = $monthlyPrincipal + $monthlyInterest;
+        // For display purposes, calculate interest per month
+        $interestPerMonth = round($totalInterest / $totalMonths, 2);
+        $principalPerMonth = round($principal / $totalMonths, 2);
 
-        for ($i = 1; $i <= $remainingMonths; $i++) {
+        for ($i = 1; $i <= $totalMonths; $i++) {
             $dueDate = $startDate->copy()->addMonths($i);
 
             LoanSchedule::create([
                 'loan_id' => $loan->id,
                 'due_date' => $dueDate,
                 'amount_due' => $monthlyAmount,
-                'principal_amount' => $monthlyPrincipal,
-                'interest_amount' => $monthlyInterest,
+                'principal_amount' => $principalPerMonth,
+                'interest_amount' => $interestPerMonth,
                 'status' => 'unpaid',
             ]);
         }

@@ -143,22 +143,41 @@ class SalesAnalyticsHelper
         return $results;
     }
 
-    public static function getWeeklySales()
+    public static function getWeeklySales($year, $month)
     {
-        $startOfWeek = Carbon::now()->startOfWeek(); // Monday
-        $endOfWeek = Carbon::now()->endOfWeek();     // Sunday
+        // Get the first day of the specified month
+        $startOfMonth = Carbon::create($year, $month, 1)->startOfDay();
+        $endOfMonth = Carbon::create($year, $month, 1)->endOfMonth()->endOfDay();
 
-        return LoanPayment::whereBetween('payment_date', [$startOfWeek, $endOfWeek])
-            ->selectRaw('DATE(payment_date) as date, SUM(amount_paid) as total')
-            ->groupBy('date')
-            ->orderBy('date')
-            ->get()
-            ->map(function ($item) {
-                return [
-                    'date' => Carbon::parse($item->date)->format('M d'),
-                    'total' => floatval($item->total)
-                ];
-            });
+        // Get all weeks in the month
+        $weeks = [];
+        $currentWeekStart = $startOfMonth->copy()->startOfWeek();
+        
+        while ($currentWeekStart->lte($endOfMonth)) {
+            $weekEnd = $currentWeekStart->copy()->endOfWeek();
+            
+            // Ensure we don't go beyond the month
+            if ($weekEnd->gt($endOfMonth)) {
+                $weekEnd = $endOfMonth->copy();
+            }
+            
+            // Ensure we don't start before the month
+            $weekStart = $currentWeekStart->lt($startOfMonth) ? $startOfMonth->copy() : $currentWeekStart->copy();
+            
+            $weekTotal = LoanPayment::whereBetween('payment_date', [$weekStart, $weekEnd])
+                ->sum('amount_paid');
+            
+            $weeks[] = [
+                'week' => 'Week ' . (count($weeks) + 1),
+                'start_date' => $weekStart->format('M d'),
+                'end_date' => $weekEnd->format('M d'),
+                'total' => floatval($weekTotal)
+            ];
+            
+            $currentWeekStart->addWeek();
+        }
+
+        return $weeks;
     }
 
     public static function getYearlySales($year)

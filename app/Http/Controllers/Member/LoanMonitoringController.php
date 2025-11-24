@@ -169,15 +169,25 @@ class LoanMonitoringController extends Controller
             ? round(($totalPaid / $totalLoanAmount) * 100, 1)
             : 0;
 
-        $schedules = $loan->schedules->map(function ($schedule) {
+        // Get approved payments with schedule_id to determine which schedules are paid
+        $approvedScheduleIds = $loan->payments
+            ->where('status', 'approved')
+            ->whereNotNull('schedule_id')
+            ->pluck('schedule_id')
+            ->toArray();
+
+        $schedules = $loan->schedules->map(function ($schedule) use ($approvedScheduleIds) {
+            // If there's an approved payment for this schedule, mark it as paid
+            $actualStatus = in_array($schedule->id, $approvedScheduleIds) ? 'paid' : $schedule->status;
+            
             return [
                 'id' => $schedule->id,
                 'due_date' => Carbon::parse($schedule->due_date)->format('M j, Y'),
                 'amount_due' => number_format($schedule->amount_due, 2),
                 'principal_amount' => number_format($schedule->principal_amount, 2),
                 'interest_amount' => number_format($schedule->interest_amount, 2),
-                'status' => ucfirst($schedule->status),
-                'is_overdue' => $schedule->status === 'unpaid' && Carbon::parse($schedule->due_date)->isPast()
+                'status' => ucfirst($actualStatus),
+                'is_overdue' => $actualStatus === 'unpaid' && Carbon::parse($schedule->due_date)->isPast()
             ];
         });
 
@@ -319,26 +329,11 @@ class LoanMonitoringController extends Controller
         $principal = isset($loan->principal_amount) ? floatval($loan->principal_amount) : 0.0;
         $totalMonths = isset($loan->term_months) ? max(1, intval($loan->term_months)) : 1;
 
-        // Down payment = 3% of principal (23% + 2.5% service fee)
-        $downPayment = round($principal * 0.03, 2);
-
-        // Remaining principal after down payment
-        $remainingPrincipal = $principal - $downPayment;
-
-        // Remaining months after down payment (which counts as first month)
-        $remainingMonths = max(1, $totalMonths - 1);
-
-        // Monthly principal payment (remaining principal / remaining months)
-        $monthlyPrincipal = round($remainingPrincipal / $remainingMonths, 2);
-
-        // Monthly interest (3% of original principal per month)
-        $monthlyInterest = round($principal * 0.03, 2);
-
-        // Total monthly payment
-        $monthlyPayment = $monthlyPrincipal + $monthlyInterest;
-
-        // Total = down payment + (remaining months * monthly payment)
-        return round($downPayment + ($remainingMonths * $monthlyPayment), 2);
+        // Simplified calculation: Total Interest = Principal * 0.03 * Months
+        $totalInterest = round($principal * 0.03 * $totalMonths, 2);
+        
+        // Total = Principal + Total Interest
+        return round($principal + $totalInterest, 2);
     }
 
     /**
@@ -350,22 +345,11 @@ class LoanMonitoringController extends Controller
         $principal = isset($loan->principal_amount) ? floatval($loan->principal_amount) : 0.0;
         $totalMonths = isset($loan->term_months) ? max(1, intval($loan->term_months)) : 1;
 
-        // Down payment = 25.5% of principal
-        $downPayment = round($principal * 0.03, 2);
-
-        // Remaining principal after down payment
-        $remainingPrincipal = $principal - $downPayment;
-
-        // Remaining months
-        $remainingMonths = max(1, $totalMonths - 1);
-
-        // Monthly principal payment
-        $monthlyPrincipal = round($remainingPrincipal / $remainingMonths, 2);
-
-        // Monthly interest (3% of original principal)
-        $monthlyInterest = round($principal * 0.03, 2);
-
-        return round($monthlyPrincipal + $monthlyInterest, 2);
+        // Simplified calculation: Total Amount / Months
+        $totalInterest = round($principal * 0.03 * $totalMonths, 2);
+        $totalAmount = $principal + $totalInterest;
+        
+        return round($totalAmount / $totalMonths, 2);
     }
 
     private function calculateDividend($loan)
