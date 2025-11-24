@@ -89,24 +89,58 @@ class AnalyticsController extends Controller
         $user = Auth::user();
 
         if ($user->role !== UserRole::ADMIN) {
-            return response()->json(['success' => false, 'message' => 'Admin profile is not found'], 401);
+            return response()->json([
+                'success' => false,
+                'message' => 'Admin profile is not found'
+            ], 401);
         }
 
+        $filter = $request->get('filter', 'per_year');   // yearly = per_year
         $year = $request->get('year', Carbon::now()->year);
-        $cacheKey = "sales_analytics_{$year}";
+        $month = $request->get('month', Carbon::now()->month);
 
-        $data = Cache::remember($cacheKey, 3600, function () use ($year) {
+        $cacheKey = "sales_analytics_{$filter}_{$year}_{$month}";
+
+        $data = Cache::remember($cacheKey, 3600, function () use ($filter, $year, $month) {
+
+
+            if ($filter === "weekly") {
+                return [
+                    "filter" => "weekly",
+                    "year" => $year,
+                    "month" => $month,
+                    "weekly_revenue" => SalesAnalyticsHelper::getWeeklySales($year, $month)
+                ];
+            }
+
+
+            if ($filter === "monthly") {
+                return [
+                    "filter" => "monthly",
+                    "year" => $year,
+                    "month" => $month,
+                    "daily_revenue" => SalesAnalyticsHelper::getMonthlySales($year, $month)
+                ];
+            }
+
+
             return [
-                'total_revenue' => SalesAnalyticsHelper::getTotalRevenue($year),
-                'average_monthly_revenue' => SalesAnalyticsHelper::getAverageMonthlyRevenue($year),
-                'target_achievement' => SalesAnalyticsHelper::getTargetAchievement($year),
-                'monthly_revenue_overview' => SalesAnalyticsHelper::getMonthlyRevenueOverview($year),
-                'sales_by_category' => SalesAnalyticsHelper::getSalesByCategory($year)
+                "filter" => "per_year",
+                "year" => $year,
+                "total_revenue" => SalesAnalyticsHelper::getTotalRevenue($year),
+                "average_monthly_revenue" => SalesAnalyticsHelper::getAverageMonthlyRevenue($year),
+                "target_achievement" => SalesAnalyticsHelper::getTargetAchievement($year),
+                "monthly_revenue_overview" => SalesAnalyticsHelper::getMonthlyRevenueOverview($year),
+                "sales_by_category" => SalesAnalyticsHelper::getSalesByCategory($year)
             ];
         });
 
-        return response()->json($data);
+        return response()->json([
+            "success" => true,
+            "data" => $data
+        ]);
     }
+
 
     public function dividendAnalytics(Request $request)
     {
@@ -122,9 +156,9 @@ class AnalyticsController extends Controller
         $cacheKey = "dividend_analytics_{$year}" . ($quarter ? "_q{$quarter}" : '');
 
         if ($refresh) {
-        Cache::forget($cacheKey);
-    }
-    
+            Cache::forget($cacheKey);
+        }
+
         $data = Cache::remember($cacheKey, 3600, function () use ($year, $quarter) {
             // Get the entire distribution payload once.
             $distributionData = DividendAnalyticsHelper::getDynamicDividendDistribution($year, $quarter);
@@ -145,7 +179,7 @@ class AnalyticsController extends Controller
             // Calculate yield based on distribution method
             $averageYield = 0;
             $isPaymentBased = $distributionData['distribution_method'] === 'payments';
-            
+
             if ($isPaymentBased) {
                 // For payment-based, yield = dividend pool / total payments
                 $totalPaid = $distributionData['total_paid_amount'];

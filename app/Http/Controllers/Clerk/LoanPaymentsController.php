@@ -179,23 +179,51 @@ class LoanPaymentsController extends Controller
     public function getQRCode()
     {
         try {
-            // Get the most recently uploaded QR code from any payment record
-            $latestQRCode = LoanPayment::whereNotNull('payment_qr_code')
-                ->orderBy('updated_at', 'desc')
-                ->first();
-
-            if ($latestQRCode && $latestQRCode->payment_qr_code) {
+            $qrDirectory = storage_path('app/public/payment_qr_codes');
+            
+            if (!file_exists($qrDirectory)) {
                 return response()->json([
-                    'success' => true,
-                    'qr_code_path' => $latestQRCode->payment_qr_code,
-                    'qr_code_url' => asset('storage/' . $latestQRCode->payment_qr_code),
-                ]);
+                    'success' => false,
+                    'message' => 'No QR code found',
+                ], 404);
             }
 
+            $files = glob($qrDirectory . '/qr_code_*.jpg');
+            
+            if (empty($files)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No QR code found',
+                ], 404);
+            }
+
+            // Get the most recently modified file
+            $latestFile = '';
+            $latestTime = 0;
+            
+            foreach ($files as $file) {
+                $fileTime = filemtime($file);
+                if ($fileTime > $latestTime) {
+                    $latestTime = $fileTime;
+                    $latestFile = $file;
+                }
+            }
+
+            if (!$latestFile) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No QR code found',
+                ], 404);
+            }
+
+            $filename = basename($latestFile);
+            $path = 'payment_qr_codes/' . $filename;
+
             return response()->json([
-                'success' => false,
-                'message' => 'No QR code found',
-            ], 404);
+                'success' => true,
+                'qr_code_path' => $path,
+                'qr_code_url' => asset('storage/' . $path),
+            ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,

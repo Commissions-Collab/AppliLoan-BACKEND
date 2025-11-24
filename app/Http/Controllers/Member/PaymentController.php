@@ -41,34 +41,17 @@ class PaymentController extends Controller
             ->where('status', 'approved')
             ->sum('amount_paid');
 
-        // Calculate total loan amount with new business rules:
-        // Down payment: 23% of principal + 2.5% service fee
-        // Monthly payments: (remaining months) * (20% principal + 3% interest)
+        // Simplified calculation: Total Interest = Principal * 0.03 * Months
         $loanModel = \App\Models\Loan::find($loanId);
         $principal = floatval($loanModel->principal_amount ?? 0);
         $totalMonths = max(1, optional($loanModel)->term_months ?? 1);
+
+        // Total Interest = Principal * 0.03 * Months
+        $totalInterest = round($principal * 0.03 * $totalMonths, 2);
         
-        // Down payment = 25.5% of principal (23% + 2.5% service fee)
-        $downPayment = round($principal * 0.255, 2);
-        
-        // Remaining principal after down payment
-        $remainingPrincipal = $principal - $downPayment;
-        
-        // Remaining months after down payment (which counts as first month)
-        $remainingMonths = max(1, $totalMonths - 1);
-        
-        // Monthly principal payment (remaining principal / remaining months)
-        $monthlyPrincipal = round($remainingPrincipal / $remainingMonths, 2);
-        
-        // Monthly interest (3% of original principal per month)
-        $monthlyInterest = round($principal * 0.03, 2);
-        
-        // Total monthly payment
-        $monthlyPayment = $monthlyPrincipal + $monthlyInterest;
-        
-        // Total amount to be paid = down payment + (remaining months * monthly payment)
-        $totalLoanAmount = $downPayment + ($remainingMonths * $monthlyPayment);
-        
+        // Total Loan Amount = Principal + Total Interest
+        $totalLoanAmount = round($principal + $totalInterest, 2);
+
         $currentBalance = max(0, $totalLoanAmount - (float) $approvedTotal);
 
         if ((float) $data['amount_paid'] > $currentBalance + 0.01) {
@@ -201,16 +184,16 @@ class PaymentController extends Controller
      */
     public function makePayment(Request $request, $loanId)
     {
-        $member = Auth::user()->member;
-
-        if (!$member) {
-            return response()->json(['success' => false, 'message' => 'Member profile not found'], 404);
-        }
-
-        $loan = $member->loans()->find($loanId);
+        // Find the loan and verify it belongs to the authenticated user
+        $loan = \App\Models\Loan::find($loanId);
 
         if (!$loan) {
             return response()->json(['success' => false, 'message' => 'Loan not found'], 404);
+        }
+
+        // Verify the loan belongs to the authenticated user's application
+        if ($loan->application->user_id !== Auth::id()) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized access to this loan'], 403);
         }
 
         $validator = Validator::make($request->all(), [
@@ -255,33 +238,16 @@ class PaymentController extends Controller
             ->where('status', 'approved')
             ->sum('amount_paid');
 
-        // Calculate total loan amount with new business rules:
-        // Down payment: 23% of principal + 2.5% service fee
-        // Monthly payments: (remaining months) * (20% principal + 3% interest)
+        // Simplified calculation: Total Interest = Principal * 0.03 * Months
         $principal = floatval($loan->principal_amount ?? 0);
         $totalMonths = max(1, $loan->term_months ?? 1);
+
+        // Total Interest = Principal * 0.03 * Months
+        $totalInterest = round($principal * 0.03 * $totalMonths, 2);
         
-        // Down payment = 25.5% of principal (23% + 2.5% service fee)
-        $downPayment = round($principal * 0.255, 2);
-        
-        // Remaining principal after down payment
-        $remainingPrincipal = $principal - $downPayment;
-        
-        // Remaining months after down payment (which counts as first month)
-        $remainingMonths = max(1, $totalMonths - 1);
-        
-        // Monthly principal payment (remaining principal / remaining months)
-        $monthlyPrincipal = round($remainingPrincipal / $remainingMonths, 2);
-        
-        // Monthly interest (3% of original principal per month)
-        $monthlyInterest = round($principal * 0.03, 2);
-        
-        // Total monthly payment
-        $monthlyPayment = $monthlyPrincipal + $monthlyInterest;
-        
-        // Total amount to be paid = down payment + (remaining months * monthly payment)
-        $totalLoanAmount = $downPayment + ($remainingMonths * $monthlyPayment);
-        
+        // Total Loan Amount = Principal + Total Interest
+        $totalLoanAmount = round($principal + $totalInterest, 2);
+
         $currentBalance = max(0, $totalLoanAmount - (float) $approvedTotal);
 
         if ((float) $data['amount_paid'] > $currentBalance + 0.01) {

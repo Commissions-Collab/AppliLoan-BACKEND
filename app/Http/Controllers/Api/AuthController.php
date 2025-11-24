@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\api;
+namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\LoginRequests;
@@ -9,7 +9,6 @@ use App\Http\Requests\VerifyOtpRequest;
 use App\Http\Requests\ForgotPasswordRequest;
 use App\Http\Requests\ResetPasswordRequest;
 use App\Mail\VerificationCodeMail;
-use App\Models\member;
 use App\Models\MemberLogin;
 use App\Models\User;
 use Carbon\Carbon;

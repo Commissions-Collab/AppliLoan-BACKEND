@@ -136,38 +136,28 @@ class LoanPaymentController extends Controller
             ? Carbon::parse($loan->release_date)
             : ($loan->approval_date ? Carbon::parse($loan->approval_date) : Carbon::today());
 
-        // Down payment counts as first month, so create schedules for remaining months
-        $remainingMonths = $totalMonths - 1;
-        
-        if ($remainingMonths <= 0) {
-            return; // Only down payment needed
-        }
-
         $principal = (float) $loan->principal_amount;
         
-        // Down payment = 25.5% of principal
-        $downPayment = round($principal * 0.255, 2);
+        // Simplified calculation: Total Interest = Principal * 0.03 * Months
+        $totalInterest = round($principal * 0.03 * $totalMonths, 2);
+        $totalAmount = $principal + $totalInterest;
         
-        // Remaining principal after down payment
-        $remainingPrincipal = $principal - $downPayment;
+        // Monthly Payment = Total Amount / Months
+        $monthlyAmount = round($totalAmount / $totalMonths, 2);
         
-        // Monthly principal payment (remaining principal / remaining months)
-        $monthlyPrincipal = round($remainingPrincipal / $remainingMonths, 2);
-        
-        // Monthly interest (3% of original principal)
-        $monthlyInterest = round($principal * 0.03, 2);
-        
-        $monthlyAmount = $monthlyPrincipal + $monthlyInterest;
+        // For display purposes, calculate interest per month
+        $interestPerMonth = round($totalInterest / $totalMonths, 2);
+        $principalPerMonth = round($principal / $totalMonths, 2);
 
-        for ($i = 1; $i <= $remainingMonths; $i++) {
+        for ($i = 1; $i <= $totalMonths; $i++) {
             $dueDate = $startDate->copy()->addMonths($i);
 
             LoanSchedule::create([
                 'loan_id' => $loan->id,
                 'due_date' => $dueDate,
                 'amount_due' => $monthlyAmount,
-                'principal_amount' => $monthlyPrincipal,
-                'interest_amount' => $monthlyInterest,
+                'principal_amount' => $principalPerMonth,
+                'interest_amount' => $interestPerMonth,
                 'status' => 'unpaid',
             ]);
         }
@@ -327,23 +317,51 @@ class LoanPaymentController extends Controller
     public function getQRCode()
     {
         try {
-            // Get the most recently uploaded QR code from any payment record
-            $latestQRCode = LoanPayment::whereNotNull('payment_qr_code')
-                ->orderBy('updated_at', 'desc')
-                ->first();
-
-            if ($latestQRCode && $latestQRCode->payment_qr_code) {
+            $qrDirectory = storage_path('app/public/payment_qr_codes');
+            
+            if (!file_exists($qrDirectory)) {
                 return response()->json([
-                    'success' => true,
-                    'qr_code_path' => $latestQRCode->payment_qr_code,
-                    'qr_code_url' => asset('storage/' . $latestQRCode->payment_qr_code),
-                ]);
+                    'success' => false,
+                    'message' => 'No QR code found',
+                ], 404);
             }
 
+            $files = glob($qrDirectory . '/qr_code_*.jpg');
+            
+            if (empty($files)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No QR code found',
+                ], 404);
+            }
+
+            // Get the most recently modified file
+            $latestFile = '';
+            $latestTime = 0;
+            
+            foreach ($files as $file) {
+                $fileTime = filemtime($file);
+                if ($fileTime > $latestTime) {
+                    $latestTime = $fileTime;
+                    $latestFile = $file;
+                }
+            }
+
+            if (!$latestFile) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No QR code found',
+                ], 404);
+            }
+
+            $filename = basename($latestFile);
+            $path = 'payment_qr_codes/' . $filename;
+
             return response()->json([
-                'success' => false,
-                'message' => 'No QR code found',
-            ], 404);
+                'success' => true,
+                'qr_code_path' => $path,
+                'qr_code_url' => asset('storage/' . $path),
+            ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
