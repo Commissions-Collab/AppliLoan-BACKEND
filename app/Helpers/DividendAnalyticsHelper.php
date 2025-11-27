@@ -121,8 +121,32 @@ class DividendAnalyticsHelper
 
         // If viewing full year, calculate per-quarter payments for each member
         if (!$quarter && !empty($memberUserIds)) {
-            // Get payments broken down by quarter for all members
+            // FIRST: Get ALL payments for the entire year for accurate totals
+            $allYearPayments = DB::table('loan_payments as p')
+                ->join('loan_schedules as s', 'p.schedule_id', '=', 's.id')
+                ->join('loans as l', 'p.loan_id', '=', 'l.id')
+                ->join('loan_applications as la', 'l.loan_application_id', '=', 'la.id')
+                ->whereIn('la.user_id', $memberUserIds)
+                ->where('p.status', 'approved')
+                ->whereRaw('p.payment_date <= s.due_date')
+                ->where('p.amount_paid', '>', 0)
+                ->whereYear('p.payment_date', $year)
+                ->select('la.user_id', DB::raw('SUM(p.amount_paid) as total_paid'))
+                ->groupBy('la.user_id')
+                ->get()
+                ->keyBy('user_id');
+
+            // THEN: Get payments broken down by quarter for each member
             $quarterlyPaymentsByMember = [];
+            
+            foreach ($members as $member) {
+                $quarterlyPaymentsByMember[$member->user_id] = [
+                    'Q1' => 0,
+                    'Q2' => 0,
+                    'Q3' => 0,
+                    'Q4' => 0
+                ];
+            }
             
             for ($q = 1; $q <= 4; $q++) {
                 $start = Carbon::create($year, ($q - 1) * 3 + 1, 1)->startOfDay();
@@ -142,13 +166,10 @@ class DividendAnalyticsHelper
                     ->get()
                     ->keyBy('user_id');
                 
-                foreach ($members as $member) {
-                    if (!isset($quarterlyPaymentsByMember[$member->user_id])) {
-                        $quarterlyPaymentsByMember[$member->user_id] = [];
+                foreach ($qPayments as $userId => $payment) {
+                    if (isset($quarterlyPaymentsByMember[$userId])) {
+                        $quarterlyPaymentsByMember[$userId]["Q{$q}"] = (float) $payment->total_paid;
                     }
-                    $quarterlyPaymentsByMember[$member->user_id]["Q{$q}"] = isset($qPayments[$member->user_id]) 
-                        ? (float) $qPayments[$member->user_id]->total_paid 
-                        : 0;
                 }
             }
 
@@ -161,16 +182,20 @@ class DividendAnalyticsHelper
                 }
             }
 
-            // Calculate total for year
-            $totalPaidAmount = array_sum($quarterlyTotals);
+            // Calculate total for year from actual payments
+            $totalPaidAmount = $allYearPayments->sum('total_paid');
             $dividendSettings['payments_total'] = $totalPaidAmount;
             $dividendSettings['total_dividend_pool'] = ($dividendSettings['dividend_rate'] ?? 0.05) * $totalPaidAmount;
 
             // Build distribution with quarterly breakdown
             foreach ($members as $member) {
                 $shareCapital = (float) ($member->share_capital ?? 0);
-                $memberQuarterlyPayments = $quarterlyPaymentsByMember[$member->user_id] ?? [];
-                $memberTotalPaid = array_sum($memberQuarterlyPayments);
+                $memberQuarterlyPayments = $quarterlyPaymentsByMember[$member->user_id] ?? ['Q1' => 0, 'Q2' => 0, 'Q3' => 0, 'Q4' => 0];
+                
+                // Use the total from allYearPayments for accuracy
+                $memberTotalPaid = isset($allYearPayments[$member->user_id]) 
+                    ? (float) $allYearPayments[$member->user_id]->total_paid 
+                    : 0;
 
                 $augmentedSettings = $dividendSettings;
                 $augmentedSettings['payments_total'] = $totalPaidAmount;
