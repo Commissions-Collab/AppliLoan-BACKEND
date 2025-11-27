@@ -86,18 +86,17 @@ class DividendAnalyticsHelper
         $dividendSettings['distribution_method'] = 'payments';
         $isPaymentsMode = true;
 
+        // Get members who have made ANY approved payments in the period
         $membersQuery = Member::query()
             ->whereIn('status', ['active', 'approved'])
             ->whereYear('created_at', '<=', $year)
             ->whereExists(function ($query) use ($year, $quarter) {
                 $query->select(DB::raw(1))
                     ->from('loan_payments as p')
-                    ->join('loan_schedules as s', 'p.schedule_id', '=', 's.id')
                     ->join('loans as l', 'p.loan_id', '=', 'l.id')
                     ->join('loan_applications as la', 'l.loan_application_id', '=', 'la.id')
                     ->whereColumn('la.user_id', 'members.user_id')
                     ->where('p.status', 'approved')
-                    ->whereRaw('p.payment_date <= s.due_date')
                     ->where('p.amount_paid', '>', 0);
 
                 if ($quarter) {
@@ -121,14 +120,12 @@ class DividendAnalyticsHelper
 
         // If viewing full year, calculate per-quarter payments for each member
         if (!$quarter && !empty($memberUserIds)) {
-            // FIRST: Get ALL payments for the entire year for accurate totals
+            // FIRST: Get ALL approved payments for the entire year (including down payments)
             $allYearPayments = DB::table('loan_payments as p')
-                ->join('loan_schedules as s', 'p.schedule_id', '=', 's.id')
                 ->join('loans as l', 'p.loan_id', '=', 'l.id')
                 ->join('loan_applications as la', 'l.loan_application_id', '=', 'la.id')
                 ->whereIn('la.user_id', $memberUserIds)
                 ->where('p.status', 'approved')
-                ->whereRaw('p.payment_date <= s.due_date')
                 ->where('p.amount_paid', '>', 0)
                 ->whereYear('p.payment_date', $year)
                 ->select('la.user_id', DB::raw('SUM(p.amount_paid) as total_paid'))
@@ -136,7 +133,7 @@ class DividendAnalyticsHelper
                 ->get()
                 ->keyBy('user_id');
 
-            // THEN: Get payments broken down by quarter for each member
+            // THEN: Get payments broken down by quarter for each member (including down payments)
             $quarterlyPaymentsByMember = [];
             
             foreach ($members as $member) {
@@ -153,12 +150,10 @@ class DividendAnalyticsHelper
                 $end = Carbon::create($year, $q * 3, 1)->endOfMonth()->endOfDay();
                 
                 $qPayments = DB::table('loan_payments as p')
-                    ->join('loan_schedules as s', 'p.schedule_id', '=', 's.id')
                     ->join('loans as l', 'p.loan_id', '=', 'l.id')
                     ->join('loan_applications as la', 'l.loan_application_id', '=', 'la.id')
                     ->whereIn('la.user_id', $memberUserIds)
                     ->where('p.status', 'approved')
-                    ->whereRaw('p.payment_date <= s.due_date')
                     ->where('p.amount_paid', '>', 0)
                     ->whereBetween('p.payment_date', [$start->toDateString(), $end->toDateString()])
                     ->select('la.user_id', DB::raw('SUM(p.amount_paid) as total_paid'))
@@ -244,12 +239,10 @@ class DividendAnalyticsHelper
 
         if (!empty($memberUserIds)) {
             $paymentsQuery = DB::table('loan_payments as p')
-                ->join('loan_schedules as s', 'p.schedule_id', '=', 's.id')
                 ->join('loans as l', 'p.loan_id', '=', 'l.id')
                 ->join('loan_applications as la', 'l.loan_application_id', '=', 'la.id')
                 ->whereIn('la.user_id', $memberUserIds)
                 ->where('p.status', 'approved')
-                ->whereRaw('p.payment_date <= s.due_date')
                 ->where('p.amount_paid', '>', 0)
                 ->select('la.user_id', DB::raw('SUM(p.amount_paid) as total_paid'))
                 ->groupBy('la.user_id');
